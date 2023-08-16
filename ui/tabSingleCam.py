@@ -1,11 +1,14 @@
 import wx
-
+from utils.storage import LocalStorage
 
 class TabSingleCam():
     def __init__(self, parent, tab):
         self.tab = tab
         # global var
         self.current_dir = None
+        # db init
+        self.db = LocalStorage('single.db')
+
         # init ui
         sizer = wx.BoxSizer(wx.VERTICAL)
         self.tab.SetSizer(sizer)
