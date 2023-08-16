@@ -7,7 +7,13 @@ class TabSingleCam():
         # global var
         self.current_dir = None
         # db init
-        self.db = LocalStorage('single.db')
+        # create a single camera calib table
+        '''
+        filename text, isreject bool, qw float, qx float, qy float, qz float, tx float, ty float, tz float
+        '''
+        self.db = LocalStorage('single.db', 
+                               '''CREATE TABLE single
+                               (filename text, isreject bool, qw float, qx float, qy float, qz float, tx float, ty float, tz float)''')
 
         # init ui
         sizer = wx.BoxSizer(wx.VERTICAL)
