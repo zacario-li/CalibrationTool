@@ -1,9 +1,13 @@
 import wx
-from .tab1 import Tab1
+from .tabSingleCam import TabSingleCam
+from .tabStereoCam import TabStereoCam
+from .tabHandEye import TabHandEye
 
 class MainWindow(wx.Frame):
     def __init__(self, parent, title):
         wx.Frame.__init__(self, parent, title=title, size=(1280, 900))
+        self.SetMinSize(self.GetSize())
+        self.SetMaxSize(self.GetSize())
         
         # Create menu bar
         self.menu_bar = wx.MenuBar()
@@ -30,24 +34,16 @@ class MainWindow(wx.Frame):
         # Create notebook with 3 tabs
         self.notebook = wx.Notebook(self)
         
-        tab1 = wx.Panel(self.notebook)
-        tab2 = wx.Panel(self.notebook)
-        tab3 = wx.Panel(self.notebook)
+        tabsingle = wx.Panel(self.notebook)
+        tabstereo = wx.Panel(self.notebook)
+        tabhandeye = wx.Panel(self.notebook)
         
-        self.notebook.AddPage(tab1, '单目相机')
-        self.notebook.AddPage(tab2, '双目相机') 
-        self.notebook.AddPage(tab3, '手眼标定')
+        self.notebook.AddPage(tabsingle, '单目相机')
+        self.notebook.AddPage(tabstereo, '双目相机') 
+        self.notebook.AddPage(tabhandeye, '手眼标定')
         
-        # Add horizontal box sizer to each tab
-        tab1_sizer = wx.BoxSizer(wx.VERTICAL)
-        tab1.SetSizer(tab1_sizer)
-        
-        tab2_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        tab2.SetSizer(tab2_sizer)
-        
-        tab3_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        tab3.SetSizer(tab3_sizer)
-
-        # prepare tab1
-        self.t1 = Tab1(self, tab1, tab1_sizer)
+        # init tabs
+        self.tsinglecam = TabSingleCam(self, tabsingle)
+        self.tstereocam = TabStereoCam(self, tabstereo)
+        self.thandeye = TabHandEye(self, tabhandeye)
  
