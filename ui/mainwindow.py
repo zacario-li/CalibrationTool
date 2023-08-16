@@ -3,7 +3,7 @@ from .tab1 import Tab1
 
 class MainWindow(wx.Frame):
     def __init__(self, parent, title):
-        wx.Frame.__init__(self, parent, title=title, size=(800, 600))
+        wx.Frame.__init__(self, parent, title=title, size=(1280, 900))
         
         # Create menu bar
         self.menu_bar = wx.MenuBar()
@@ -39,7 +39,7 @@ class MainWindow(wx.Frame):
         self.notebook.AddPage(tab3, '手眼标定')
         
         # Add horizontal box sizer to each tab
-        tab1_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        tab1_sizer = wx.BoxSizer(wx.VERTICAL)
         tab1.SetSizer(tab1_sizer)
         
         tab2_sizer = wx.BoxSizer(wx.HORIZONTAL)
