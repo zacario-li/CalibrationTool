@@ -95,7 +95,7 @@ class CalibChessboard():
             imgpoints.append(cors)
         ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(
             objpoints, imgpoints, gray.shape[::-1], None, None)
-        
+
         # TODO evaluate the results
         return ret, mtx, dist, rvecs, tvecs
 
