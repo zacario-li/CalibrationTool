@@ -1,4 +1,6 @@
 import wx
+import os
+from pathlib import Path
 from utils.storage import LocalStorage
 from loguru import logger
 
@@ -9,7 +11,7 @@ class TabSingleCam():
         # global var
         self.current_dir = None
         self.db = self.init_db()
-        ## checkerboard's pattern
+        # checkerboard's pattern
         self.checkerboard_row_cell = 0
         self.checkerboard_col_cell = 0
         self.checkerboard_cell_size_in_mm = 0.0
@@ -47,9 +49,23 @@ class TabSingleCam():
         # db init
         # create a single camera calib table
         '''
-        filename text, isreject bool, qw float, qx float, qy float, qz float, tx float, ty float, tz float
+        use quaternion and position to represent rotation and translation
+        |id integer|rootpath text|filename text|isreject bool|qw float |qx float  |qy float  |qz float  |tx float|ty float| tz float|
+        |----------|-------------|-------------|-------------|---------|----------|----------|----------|--------|--------|---------|
+        |    0     |c:\data\     |    img1.png |  False      |0.1085443|-0.2130855|-0.9618053|-0.1332042| -44.071| 272.898|-1388.602|
+        |    1     |c:\data\     |    img2.png |  True       |         |          |          |          |        |        |         |
         '''
-        TABLE_SQL_STR = 'filename text, isreject bool, qw float, qx float, qy float, qz float, tx float, ty float, tz float'
+        TABLE_SQL_STR = '''id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                            rootpath text,
+                            filename text, 
+                            isreject bool, 
+                            qw float, 
+                            qx float, 
+                            qy float, 
+                            qz float, 
+                            tx float, 
+                            ty float, 
+                            tz float'''
         self.DB_FILENAME = 'single.db'
         self.DB_TABLENAME = 'single'
         db = LocalStorage(self.DB_FILENAME)
@@ -60,6 +76,14 @@ class TabSingleCam():
         else:
             return db
 
+    def list_images_with_suffix(self, rootpath: str, suffix_list: list = ['png', 'jpg', 'jpeg', 'bmp']):
+        images = []
+        for f in os.listdir(rootpath):
+            suffix = f.rsplit('.', 1)[-1].lower()
+            if suffix in suffix_list:
+                images.append(f)
+        return images
+
     def on_select_file_path(self, evt):
         dir_dialog = wx.DirDialog(
             None, "选择校准图像路径", style=wx.DD_DEFAULT_STYLE | wx.DD_NEW_DIR_BUTTON)
@@ -67,17 +91,21 @@ class TabSingleCam():
             self.current_dir = dir_dialog.GetPath()
             self.m_textCtrl1.SetValue(self.current_dir)
         dir_dialog.Destroy()
+
+        images = self.list_images_with_suffix(self.current_dir)
         # progress
         keep_going = True
         count = 0
-        max_value = 100
+        max_value = len(images)
         dlg = wx.ProgressDialog("waiting",
                                 "图片加载中，请稍后",
                                 maximum=max_value,
                                 parent=self.tab,
-                                style=wx.PD_CAN_ABORT | wx.PD_APP_MODAL | wx.PD_ELAPSED_TIME | wx.PD_REMAINING_TIME)
-        while keep_going and count < max_value:
+                                style=wx.PD_APP_MODAL)
+
+        for item in images:
             count += 1
-            wx.Sleep(1)
-            (keep_going, skip) = dlg.Update(count)
+            self.db.write_data(
+                self.DB_TABLENAME, f'null, \'{self.current_dir}\', \'{item}\', 0, null, null, null, null, null, null, null')
+            (keep_going, skip) = dlg.Update(count, f'adding {count} images')
         dlg.Destroy()

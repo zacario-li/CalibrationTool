@@ -25,8 +25,27 @@ class LocalStorage():
         self.db_connection.commit()
         return True
 
-    def retrive_data(self, tablename: str):
-        pass
+    # result = retrive_data(self.DB_TABLENAME, '*')
+    def retrive_data(self, tablename: str, datasql:str):
+        full_sql = f'SELECT {datasql} from {tablename}'
+        self.cursor.execute(full_sql)
+        records = self.cursor.fetchall()
+        return records
 
     def write_data(self, tablename: str, datasql: str):
-        pass
+        full_sql = f'''INSERT INTO {tablename} 
+                            VALUES ({datasql})'''
+        self.cursor.execute(full_sql)
+        self.db_connection.commit()
+
+    # modify_data(self.DB_TABLENAME, f'SET qw=0.123456, qx= 1.987654 WHERE filename=\'20230607_154004.png\'')
+    def modify_data(self, tablename:str, datasql:str):
+        full_sql = f'UPDATE {tablename} '+ datasql
+        self.cursor.execute(full_sql)
+        self.db_connection.commit()
+
+    # delete_data(self.DB_TABLENAME, f'WHERE filename=\'20230607_154448.png\'')
+    def delete_data(self, tablename:str, datasql:str):
+        full_sql = f'DELETE FROM {tablename} ' + datasql
+        self.cursor.execute(full_sql)
+        self.db_connection.commit()
