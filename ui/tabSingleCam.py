@@ -183,7 +183,7 @@ class TabSingleCam():
                                 "图片加载中，请稍后",
                                 maximum=max_value,
                                 parent=self.tab,
-                                style=wx.PD_APP_MODAL|wx.PD_AUTO_HIDE)
+                                style=wx.PD_APP_MODAL | wx.PD_AUTO_HIDE)
 
         for item in images:
             count += 1

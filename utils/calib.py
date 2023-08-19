@@ -82,7 +82,7 @@ class CalibChessboard():
         objpoints = []  # 3d points in real world space
         imgpoints = []  # 2d points in image plane.
         rejected_files = []  # 无法获取角点的图片列表
-        calibrated_files = [] # 校准成功的文件列表
+        calibrated_files = []  # 校准成功的文件列表
 
         for fname in filelist:
             img = cv2.imread(os.path.join(rootpath, fname))
