@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-import glob
+import os
 
 
 def quat2rot(q: np.array):
@@ -65,7 +65,7 @@ def combineRT(R, Tx, Ty, Tz):
 
 
 class CalibChessboard():
-    def __init(self, row, col, cellsize):
+    def __init__(self, row, col, cellsize):
         self.ROW_COR = row-1
         self.COL_COR = col-1
         self.CELLSIZE = cellsize
@@ -78,12 +78,12 @@ class CalibChessboard():
                                     0:self.COL_COR].T.reshape(-1, 2) * self.CELLSIZE
 
     # 单目校准
-    def single_calib(self, filelist: list):
+    def single_calib(self, rootpath:str, filelist: list):
         objpoints = []  # 3d points in real world space
         imgpoints = []  # 2d points in image plane.
 
         for fname in filelist:
-            img = cv2.imread(fname)
+            img = cv2.imread(os.path.join(rootpath,fname))
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             ret, cors = self.find_corners(gray)
             if ret is not True:

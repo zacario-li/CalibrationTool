@@ -2,6 +2,7 @@ import wx
 import os
 from pathlib import Path
 from utils.storage import LocalStorage
+from utils.calib import CalibChessboard
 from loguru import logger
 
 
@@ -44,12 +45,14 @@ class TabSingleCam():
         self.m_staticText_row = wx.StaticText(
             self.tab, wx.ID_ANY, u"标定板行数", wx.DefaultPosition, wx.DefaultSize, 0)
         self.m_staticText_row.Wrap(-1)
+        # 获取上述控件大小，便于设定 textCtrl 大小
+        text_size = self.m_staticText_row.GetSize()
 
         self.checkerpattern_h_sizer.Add(
             self.m_staticText_row, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, pattern_border)
 
         self.m_textCtrl_row = wx.TextCtrl(
-            self.tab, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0)
+            self.tab, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, text_size, 0)
         self.checkerpattern_h_sizer.Add(
             self.m_textCtrl_row, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, pattern_border)
 
@@ -61,9 +64,21 @@ class TabSingleCam():
             self.m_staticText_col, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, pattern_border)
 
         self.m_textCtrl_col = wx.TextCtrl(
-            self.tab, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0)
+            self.tab, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, text_size, 0)
         self.checkerpattern_h_sizer.Add(
             self.m_textCtrl_col, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, pattern_border)
+
+        self.m_staticText_cellsize = wx.StaticText(
+            self.tab, wx.ID_ANY, u"标定板单元格边长(mm)", wx.DefaultPosition, wx.DefaultSize, 0)
+        self.m_staticText_cellsize.Wrap(-1)
+
+        self.checkerpattern_h_sizer.Add(
+            self.m_staticText_cellsize, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, pattern_border)
+
+        self.m_textCtrl_cellsize = wx.TextCtrl(
+            self.tab, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, text_size, 0)
+        self.checkerpattern_h_sizer.Add(
+            self.m_textCtrl_cellsize, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, pattern_border)
 
         self.m_calibrate_btn = wx.Button(
             self.tab, wx.ID_ANY, u"开始标定", wx.DefaultPosition, wx.DefaultSize, 0)
@@ -172,10 +187,23 @@ class TabSingleCam():
     def on_click_calibrate(self, evt):
         if (len(self.m_textCtrl_row.GetValue()) and len(self.m_textCtrl_col.GetValue())) == 0:
             self.m_staticText_warning.SetLabel(
-                "！！！！！！！！！！！请先填写标定板的行和列数！！！！！！！！！！！")
+                "！！！！！！！！！！！请先填写标定板的行和列数，标定板单元格边长可以忽略，如果需要精确的 translation，那么请输入正确的值！！！！！！！！！！！")
             self.m_staticText_warning.SetBackgroundColour(wx.Colour(255, 0, 0))
         else:
             self.m_staticText_warning.SetLabel(wx.EmptyString)
             self.m_staticText_warning.ClearBackground()
+            
             # do calibration
-            # self.db.retrive_data()
+            results = self.db.retrive_data(self.DB_TABLENAME, f'rootpath, filename')
+            filelist = [f[1] for f in results]
+
+            row = int(self.m_textCtrl_row.GetValue())
+            col = int(self.m_textCtrl_col.GetValue())
+
+            if len(self.m_textCtrl_cellsize.GetValue()) == 0:
+                cellsize = 1.0
+            else:
+                cellsize = float(self.m_textCtrl_cellsize.GetValue())
+            calib = CalibChessboard(row, col, cellsize)
+            calib.single_calib(results[0][0], filelist)
+            pass
