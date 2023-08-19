@@ -1,8 +1,9 @@
+import cv2
 import wx
 import os
 from pathlib import Path
 from utils.storage import LocalStorage
-from utils.calib import CalibChessboard
+from utils.calib import CalibChessboard, quat2rot, rot2quat
 from loguru import logger
 
 
@@ -12,6 +13,10 @@ class TabSingleCam():
         # global var
         self.current_dir = None
         self.db = self.init_db()
+        # intrinsic and distortion coef, also reprojection error
+        self.mtx = None
+        self.dist = None
+        self.rpjerr = None
         # checkerboard's pattern
         self.checkerboard_row_cell = 0
         self.checkerboard_col_cell = 0
@@ -142,11 +147,14 @@ class TabSingleCam():
     def list_images_with_suffix(self, rootpath: str, suffix_list: list = ['png', 'jpg', 'jpeg', 'bmp']):
         images = []
         for f in os.listdir(rootpath):
-            suffix = f.rsplit('.', 1)[-1].lower()
-            if suffix in suffix_list:
-                images.append(f)
+            # on macos, listdir will create a hidden file which name starts with '.', it can not be opened by opencv
+            if not f.startswith('.'):
+                suffix = f.rsplit('.', 1)[-1].lower()
+                if suffix in suffix_list:
+                    images.append(f)
         return images
 
+    # 加载图片文件
     def on_select_file_path(self, evt):
         dir_dialog = wx.DirDialog(
             None, "选择校准图像路径", style=wx.DD_DEFAULT_STYLE | wx.DD_NEW_DIR_BUTTON)
@@ -171,19 +179,21 @@ class TabSingleCam():
         keep_going = True
         count = 0
         max_value = len(images)
-        dlg = wx.ProgressDialog("waiting",
+        dlg = wx.ProgressDialog("加载图像",
                                 "图片加载中，请稍后",
                                 maximum=max_value,
                                 parent=self.tab,
-                                style=wx.PD_APP_MODAL)
+                                style=wx.PD_APP_MODAL|wx.PD_AUTO_HIDE)
 
         for item in images:
             count += 1
             self.db.write_data(
                 self.DB_TABLENAME, f'null, \'{self.current_dir}\', \'{item}\', 0, null, null, null, null, null, null, null')
-            (keep_going, skip) = dlg.Update(count, f'adding {count} images')
+            (keep_going, skip) = dlg.Update(count, f'added {count} images')
+        wx.Sleep(2)
         dlg.Destroy()
 
+    # 执行标定操作
     def on_click_calibrate(self, evt):
         if (len(self.m_textCtrl_row.GetValue()) and len(self.m_textCtrl_col.GetValue())) == 0:
             self.m_staticText_warning.SetLabel(
@@ -192,18 +202,63 @@ class TabSingleCam():
         else:
             self.m_staticText_warning.SetLabel(wx.EmptyString)
             self.m_staticText_warning.ClearBackground()
-            
-            # do calibration
-            results = self.db.retrive_data(self.DB_TABLENAME, f'rootpath, filename')
-            filelist = [f[1] for f in results]
 
+            # do calibration
+            # 读取数据库中的文件列表
+            results = self.db.retrive_data(
+                self.DB_TABLENAME, f'rootpath, filename')
+            filelist = [f[1] for f in results]
+            # 读取标定板行列数
             row = int(self.m_textCtrl_row.GetValue())
             col = int(self.m_textCtrl_col.GetValue())
-
+            # 读取单元格边长，如果留空，默认值为 1.0 mm
             if len(self.m_textCtrl_cellsize.GetValue()) == 0:
                 cellsize = 1.0
             else:
                 cellsize = float(self.m_textCtrl_cellsize.GetValue())
+
+            # 创建单目校准类
             calib = CalibChessboard(row, col, cellsize)
-            calib.single_calib(results[0][0], filelist)
-            pass
+            dlg = wx.ProgressDialog(
+                "标定", "正在标定...", maximum=3, parent=self.tab, style=wx.PD_APP_MODAL | wx.PD_AUTO_HIDE)
+            dlg.Update(0, "开始计算")
+            # 执行校准，并得到结果
+            ret, mtx, dist, rvecs, tvecs, rej_list, cal_list = calib.single_calib(
+                results[0][0], filelist)
+            dlg.Update(1, "计算结束")
+            wx.Sleep(1)
+            self.rpjerr = ret
+            self.mtx = mtx
+            self.dist = dist
+            # update the database
+            self._set_rejected_flags(rej_list)
+            dlg.Update(2, "更新校准失败的文件信息")
+            wx.Sleep(1)
+            self._save_each_image_rt(rvecs, tvecs, cal_list)
+            dlg.Update(3, "保存标定结果到数据库")
+            wx.Sleep(2)
+            dlg.Destroy()
+
+    def _set_rejected_flags(self, filelist):
+        for f in filelist:
+            self.db.modify_data(self.DB_TABLENAME,
+                                f'''SET isreject=1 WHERE filename=\'{f}\' ''')
+
+    def _save_each_image_rt(self, rvecs, tvecs, filelist):
+        if len(rvecs) == len(filelist):
+            for f, rv, tv in zip(filelist, rvecs, tvecs):
+                # convert rt vecs into quat
+                R, _ = cv2.Rodrigues(rv)
+                q = rot2quat(R)
+                self.db.modify_data(
+                    self.DB_TABLENAME, f'''SET isreject=0, 
+                                        qw={float(q[0])}, 
+                                        qx={float(q[1])},
+                                        qy={float(q[2])},
+                                        qz={float(q[3])},
+                                        tx={float(tv[0])},
+                                        ty={float(tv[1])},
+                                        tz={float(tv[2])} 
+                                        WHERE filename=\'{f}\' ''')
+        else:
+            logger.debug(f'please check the file list')

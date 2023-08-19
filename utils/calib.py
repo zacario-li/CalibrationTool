@@ -78,26 +78,29 @@ class CalibChessboard():
                                     0:self.COL_COR].T.reshape(-1, 2) * self.CELLSIZE
 
     # 单目校准
-    def single_calib(self, rootpath:str, filelist: list):
+    def single_calib(self, rootpath: str, filelist: list):
         objpoints = []  # 3d points in real world space
         imgpoints = []  # 2d points in image plane.
+        rejected_files = []  # 无法获取角点的图片列表
+        calibrated_files = [] # 校准成功的文件列表
 
         for fname in filelist:
-            img = cv2.imread(os.path.join(rootpath,fname))
+            img = cv2.imread(os.path.join(rootpath, fname))
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             ret, cors = self.find_corners(gray)
             if ret is not True:
-                # set reject flag into its database
-                pass
+                # remember the rejected files
+                rejected_files.append(fname)
+            else:
+                calibrated_files.append(fname)
+                objpoints.append(self.objp)
+                imgpoints.append(cors)
 
-            # TODO store these points into its database
-            objpoints.append(self.objp)
-            imgpoints.append(cors)
         ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(
             objpoints, imgpoints, gray.shape[::-1], None, None)
 
         # TODO evaluate the results
-        return ret, mtx, dist, rvecs, tvecs
+        return ret, mtx, dist, rvecs, tvecs, rejected_files, calibrated_files
 
     # 重投影误差
     def rpje(self, corners, r, t, cameraMatrix, distCoeffs):
