@@ -26,8 +26,8 @@ class LocalStorage():
         return True
 
     # result = retrive_data(self.DB_TABLENAME, '*')
-    def retrive_data(self, tablename: str, datasql: str):
-        full_sql = f'SELECT {datasql} from {tablename}'
+    def retrive_data(self, tablename: str, datasql: str, condsql:str=''):
+        full_sql = f'SELECT {datasql} FROM {tablename} {condsql}'
         self.cursor.execute(full_sql)
         records = self.cursor.fetchall()
         return records

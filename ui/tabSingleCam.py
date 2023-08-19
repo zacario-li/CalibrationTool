@@ -29,6 +29,8 @@ class TabSingleCam():
         self.path_h_sizer = wx.BoxSizer(wx.HORIZONTAL)
         # 标定板pattern设置layout
         self.checkerpattern_h_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        # 主显示区域的水平layout
+        self.main_h_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
         # 组建文件夹选择区域
         self.m_textCtrl1 = wx.TextCtrl(
@@ -103,15 +105,25 @@ class TabSingleCam():
         self.m_staticline1 = wx.StaticLine(
             self.tab, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.LI_HORIZONTAL)
         sizer.Add(self.m_staticline1, 0, wx.EXPAND | wx.ALL, 5)
-        self.m_listCtrl1 = wx.ListCtrl(
-            self.tab, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.LC_ICON)
-        sizer.Add(self.m_listCtrl1, 200, wx.ALL, 5)
+
+        # 进入主显示区域
+        sizer.Add(self.main_h_sizer, 20, wx.ALL, 5)
+
+        # tree ctrl
+        self.iconlist = wx.ImageList(16,16)
+        self.icon_ok = self.iconlist.Add(wx.ArtProvider.GetBitmap(wx.ART_INFORMATION, wx.ART_OTHER, (16,16)))
+        self.icon_q = self.iconlist.Add(wx.ArtProvider.GetBitmap(wx.ART_CROSS_MARK, wx.ART_OTHER, (16,16)))
+        self.m_treeCtl_images = self.create_treectrl()
+
+        self.main_h_sizer.Add(self.m_treeCtl_images, 1, wx.EXPAND, 5)
 
         # register callback
         self.tab.Bind(wx.EVT_BUTTON, self.on_select_file_path,
                       self.m_select_file_path)
         self.tab.Bind(wx.EVT_BUTTON, self.on_click_calibrate,
                       self.m_calibrate_btn)
+        self.tab.Bind(wx.EVT_TREE_SEL_CHANGING, self.on_tree_item_select, self.m_treeCtl_images)
+        self.tab.Bind(wx.EVT_TREE_ITEM_RIGHT_CLICK, self.on_tree_item_right_click, self.m_treeCtl_images)
 
     def init_db(self):
         # db init
@@ -154,6 +166,38 @@ class TabSingleCam():
                     images.append(f)
         return images
 
+    # 左侧树形目录显示每张标定结果的控件
+    def create_treectrl(self):
+        tree = wx.TreeCtrl(self.tab, size=wx.Size(180,-1))
+        tree.AssignImageList(self.iconlist)
+        # tree.AddRoot('./', image=0)
+        return tree
+        
+
+    def update_treectrl(self, all:bool=False):
+        tree = self.m_treeCtl_images
+        tree.DeleteAllItems()
+        # retrive qualified images from db
+        if all is False:
+            condi = f'WHERE isreject=0'
+        else:
+            condi = ''
+        results = self.db.retrive_data(self.DB_TABLENAME, f'rootpath, filename', condi)
+        filelist = [f[1] for f in results]
+        dirroot = tree.AddRoot('./', image=0)
+        tree.SelectItem(dirroot)
+        if len(filelist)>0:
+            for f in filelist:
+                newItem = tree.AppendItem(dirroot, f)
+                tree.SetItemImage(newItem, self.icon_ok)
+            tree.Expand(dirroot)
+
+    def on_tree_item_select(self, evt):
+        pass 
+
+    def on_tree_item_right_click(self, evt):
+        item = evt.GetItem()
+
     # 加载图片文件
     def on_select_file_path(self, evt):
         dir_dialog = wx.DirDialog(
@@ -161,6 +205,8 @@ class TabSingleCam():
         if dir_dialog.ShowModal() == wx.ID_OK:
             self.current_dir = dir_dialog.GetPath()
             self.m_textCtrl1.SetValue(self.current_dir)
+        else:
+            return 
         dir_dialog.Destroy()
 
         images = self.list_images_with_suffix(self.current_dir)
@@ -184,14 +230,18 @@ class TabSingleCam():
                                 maximum=max_value,
                                 parent=self.tab,
                                 style=wx.PD_APP_MODAL | wx.PD_AUTO_HIDE)
-
+        # 删除旧记录
+        self.db.delete_data(self.DB_TABLENAME, f'WHERE 1=1')
+        # 写入新纪录
         for item in images:
             count += 1
             self.db.write_data(
                 self.DB_TABLENAME, f'null, \'{self.current_dir}\', \'{item}\', 0, null, null, null, null, null, null, null')
             (keep_going, skip) = dlg.Update(count, f'added {count} images')
-        wx.Sleep(2)
+        wx.Sleep(1)
         dlg.Destroy()
+        # update tree ctrl
+        self.update_treectrl()
 
     # 执行标定操作
     def on_click_calibrate(self, evt):
@@ -236,8 +286,10 @@ class TabSingleCam():
             wx.Sleep(1)
             self._save_each_image_rt(rvecs, tvecs, cal_list)
             dlg.Update(3, "保存标定结果到数据库")
-            wx.Sleep(2)
+            wx.Sleep(1)
             dlg.Destroy()
+            # update tree ctrl
+            self.update_treectrl()
 
     def _set_rejected_flags(self, filelist):
         for f in filelist:
