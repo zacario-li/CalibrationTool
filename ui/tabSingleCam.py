@@ -33,6 +33,9 @@ class TabSingleCam():
         self.main_h_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
         # 组建文件夹选择区域
+        '''
+        |文件路径|选择按钮|
+        '''
         self.m_textCtrl1 = wx.TextCtrl(
             self.tab, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0)
         self.m_textCtrl1.Enable(False)
@@ -48,6 +51,9 @@ class TabSingleCam():
         sizer.Add(self.path_h_sizer, 1, wx.EXPAND, 5)
 
         # 组建标定板pattern设置区域
+        '''
+        |标定板行数|__|标定板列数|__|标定板单元格边长(mm)|__|开始标定|
+        '''
         pattern_border = 1
         self.m_staticText_row = wx.StaticText(
             self.tab, wx.ID_ANY, u"标定板行数", wx.DefaultPosition, wx.DefaultSize, 0)
@@ -107,6 +113,9 @@ class TabSingleCam():
         sizer.Add(self.m_staticline1, 0, wx.EXPAND | wx.ALL, 5)
 
         # 进入主显示区域
+        '''
+        |image tree|image view|camera poses|
+        '''
         sizer.Add(self.main_h_sizer, 20, wx.ALL, 5)
 
         # tree ctrl
@@ -119,6 +128,16 @@ class TabSingleCam():
 
         self.main_h_sizer.Add(self.m_treeCtl_images, 1, wx.EXPAND, 5)
 
+        # image view
+        self.m_main_image_view = wx.StaticBitmap(
+            self.tab, size=wx.Size(800, 600))
+        self.m_main_image_view.SetScaleMode(wx.StaticBitmap.Scale_AspectFill)
+
+        self.main_h_sizer.Add(self.m_main_image_view, 3, wx.EXPAND, 5)
+
+        # camera poses
+        # TODO
+
         # register callback
         self.tab.Bind(wx.EVT_BUTTON, self.on_select_file_path,
                       self.m_select_file_path)
@@ -128,6 +147,7 @@ class TabSingleCam():
                       self.on_tree_item_select, self.m_treeCtl_images)
         self.tab.Bind(wx.EVT_TREE_ITEM_RIGHT_CLICK,
                       self.on_tree_item_right_click, self.m_treeCtl_images)
+        self.tab.Bind(wx.EVT_PAINT, self.on_paint_main_imageview)
 
     def init_db(self):
         # db init
@@ -199,10 +219,15 @@ class TabSingleCam():
             tree.Expand(dirroot)
 
     def on_tree_item_select(self, evt):
-        pass
+        self.m_main_image_view.Refresh()
 
     def on_tree_item_right_click(self, evt):
+        self.m_main_image_view.Refresh()
         item = evt.GetItem()
+
+    def on_paint_main_imageview(self, evt):
+        dc = wx.BufferedPaintDC(self.m_main_image_view)
+        pass
 
     # 加载图片文件
     def on_select_file_path(self, evt):
@@ -211,6 +236,7 @@ class TabSingleCam():
         if dir_dialog.ShowModal() == wx.ID_OK:
             self.current_dir = dir_dialog.GetPath()
             self.m_textCtrl1.SetValue(self.current_dir)
+            self.m_calibrate_btn.Enable(False)
         else:
             return
         dir_dialog.Destroy()
@@ -253,7 +279,7 @@ class TabSingleCam():
     def on_click_calibrate(self, evt):
         if (len(self.m_textCtrl_row.GetValue()) and len(self.m_textCtrl_col.GetValue())) == 0:
             self.m_staticText_warning.SetLabel(
-                "！！！！！！！！！！！请先填写标定板的行和列数，标定板单元格边长可以忽略，如果需要精确的 translation，那么请输入正确的值！！！！！！！！！！！")
+                "请先填写标定板的行和列数，标定板单元格边长可以忽略，如果需要精确的 translation，那么请输入正确的值")
             self.m_staticText_warning.SetBackgroundColour(wx.Colour(255, 0, 0))
         else:
             self.m_staticText_warning.SetLabel(wx.EmptyString)
