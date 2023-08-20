@@ -96,11 +96,11 @@ class CalibChessboard():
                 objpoints.append(self.objp)
                 imgpoints.append(cors)
 
-        ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(
+        ret, mtx, dist, rvecs, tvecs, stdintri, stdextri, perverrs = cv2.calibrateCameraExtended(
             objpoints, imgpoints, gray.shape[::-1], None, None)
 
         # TODO evaluate the results
-        return ret, mtx, dist, rvecs, tvecs, rejected_files, calibrated_files
+        return ret, mtx, dist, rvecs, tvecs, perverrs, rejected_files, calibrated_files
 
     # 重投影误差
     def rpje(self, corners, r, t, cameraMatrix, distCoeffs):
@@ -130,7 +130,7 @@ class CalibChessboard():
     def calculate_img_rt(self, grayimg, cameraMatrix, distCoeffs):
         _, cors = self.find_corners(grayimg)
 
-        ret, rvecs, tvecs = cv2.solvePnPRansac(
+        ret, rvecs, tvecs, inliers = cv2.solvePnPRansac(
             self.objp, cors, cameraMatrix, distCoeffs)
         R, _ = cv2.Rodrigues(rvecs)
 

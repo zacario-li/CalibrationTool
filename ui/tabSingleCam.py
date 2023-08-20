@@ -110,9 +110,11 @@ class TabSingleCam():
         sizer.Add(self.main_h_sizer, 20, wx.ALL, 5)
 
         # tree ctrl
-        self.iconlist = wx.ImageList(16,16)
-        self.icon_ok = self.iconlist.Add(wx.ArtProvider.GetBitmap(wx.ART_INFORMATION, wx.ART_OTHER, (16,16)))
-        self.icon_q = self.iconlist.Add(wx.ArtProvider.GetBitmap(wx.ART_CROSS_MARK, wx.ART_OTHER, (16,16)))
+        self.iconlist = wx.ImageList(16, 16)
+        self.icon_ok = self.iconlist.Add(wx.ArtProvider.GetBitmap(
+            wx.ART_INFORMATION, wx.ART_OTHER, (16, 16)))
+        self.icon_q = self.iconlist.Add(wx.ArtProvider.GetBitmap(
+            wx.ART_CROSS_MARK, wx.ART_OTHER, (16, 16)))
         self.m_treeCtl_images = self.create_treectrl()
 
         self.main_h_sizer.Add(self.m_treeCtl_images, 1, wx.EXPAND, 5)
@@ -122,18 +124,20 @@ class TabSingleCam():
                       self.m_select_file_path)
         self.tab.Bind(wx.EVT_BUTTON, self.on_click_calibrate,
                       self.m_calibrate_btn)
-        self.tab.Bind(wx.EVT_TREE_SEL_CHANGING, self.on_tree_item_select, self.m_treeCtl_images)
-        self.tab.Bind(wx.EVT_TREE_ITEM_RIGHT_CLICK, self.on_tree_item_right_click, self.m_treeCtl_images)
+        self.tab.Bind(wx.EVT_TREE_SEL_CHANGING,
+                      self.on_tree_item_select, self.m_treeCtl_images)
+        self.tab.Bind(wx.EVT_TREE_ITEM_RIGHT_CLICK,
+                      self.on_tree_item_right_click, self.m_treeCtl_images)
 
     def init_db(self):
         # db init
         # create a single camera calib table
         '''
         use quaternion and position to represent rotation and translation
-        |id integer|rootpath text|filename text|isreject bool|qw float |qx float  |qy float  |qz float  |tx float|ty float| tz float|
-        |----------|-------------|-------------|-------------|---------|----------|----------|----------|--------|--------|---------|
-        |    0     |c:\data\     |    img1.png |  False      |0.1085443|-0.2130855|-0.9618053|-0.1332042| -44.071| 272.898|-1388.602|
-        |    1     |c:\data\     |    img2.png |  True       |         |          |          |          |        |        |         |
+        |id integer|rootpath text|filename text|isreject bool|qw float |qx float  |qy float  |qz float  |tx float|ty float| tz float|  rpje|
+        |----------|-------------|-------------|-------------|---------|----------|----------|----------|--------|--------|---------|------|
+        |    0     |c:\data\     |    img1.png |  False      |0.1085443|-0.2130855|-0.9618053|-0.1332042| -44.071| 272.898|-1388.602|0.1826|
+        |    1     |c:\data\     |    img2.png |  True       |         |          |          |          |        |        |         |      |
         '''
         TABLE_SQL_STR = '''id INTEGER PRIMARY KEY AUTOINCREMENT, 
                             rootpath text,
@@ -145,7 +149,8 @@ class TabSingleCam():
                             qz float, 
                             tx float, 
                             ty float, 
-                            tz float'''
+                            tz float,
+                            rpje float'''
         self.DB_FILENAME = 'single.db'
         self.DB_TABLENAME = 'single'
         db = LocalStorage(self.DB_FILENAME)
@@ -168,13 +173,12 @@ class TabSingleCam():
 
     # 左侧树形目录显示每张标定结果的控件
     def create_treectrl(self):
-        tree = wx.TreeCtrl(self.tab, size=wx.Size(180,-1))
+        tree = wx.TreeCtrl(self.tab, size=wx.Size(250, -1))
         tree.AssignImageList(self.iconlist)
-        # tree.AddRoot('./', image=0)
         return tree
-        
 
-    def update_treectrl(self, all:bool=False):
+    # 更新目录条目信息
+    def update_treectrl(self, all: bool = False):
         tree = self.m_treeCtl_images
         tree.DeleteAllItems()
         # retrive qualified images from db
@@ -182,18 +186,20 @@ class TabSingleCam():
             condi = f'WHERE isreject=0'
         else:
             condi = ''
-        results = self.db.retrive_data(self.DB_TABLENAME, f'rootpath, filename', condi)
+        results = self.db.retrive_data(
+            self.DB_TABLENAME, f'rootpath, filename, rpje', condi)
         filelist = [f[1] for f in results]
-        dirroot = tree.AddRoot('./', image=0)
+        rpjes = [r[2] for r in results]
+        dirroot = tree.AddRoot('文件名:(重投影误差)', image=0)
         tree.SelectItem(dirroot)
-        if len(filelist)>0:
-            for f in filelist:
-                newItem = tree.AppendItem(dirroot, f)
+        if len(filelist) > 0:
+            for fname, r in zip(filelist, rpjes):
+                newItem = tree.AppendItem(dirroot, f'{fname}:({str(r)})')
                 tree.SetItemImage(newItem, self.icon_ok)
             tree.Expand(dirroot)
 
     def on_tree_item_select(self, evt):
-        pass 
+        pass
 
     def on_tree_item_right_click(self, evt):
         item = evt.GetItem()
@@ -206,7 +212,7 @@ class TabSingleCam():
             self.current_dir = dir_dialog.GetPath()
             self.m_textCtrl1.SetValue(self.current_dir)
         else:
-            return 
+            return
         dir_dialog.Destroy()
 
         images = self.list_images_with_suffix(self.current_dir)
@@ -236,7 +242,7 @@ class TabSingleCam():
         for item in images:
             count += 1
             self.db.write_data(
-                self.DB_TABLENAME, f'null, \'{self.current_dir}\', \'{item}\', 0, null, null, null, null, null, null, null')
+                self.DB_TABLENAME, f'null, \'{self.current_dir}\', \'{item}\', 0, null, null, null, null, null, null, null, null')
             (keep_going, skip) = dlg.Update(count, f'added {count} images')
         wx.Sleep(1)
         dlg.Destroy()
@@ -273,7 +279,7 @@ class TabSingleCam():
                 "标定", "正在标定...", maximum=3, parent=self.tab, style=wx.PD_APP_MODAL | wx.PD_AUTO_HIDE)
             dlg.Update(0, "开始计算")
             # 执行校准，并得到结果
-            ret, mtx, dist, rvecs, tvecs, rej_list, cal_list = calib.single_calib(
+            ret, mtx, dist, rvecs, tvecs, rpjes, rej_list, cal_list = calib.single_calib(
                 results[0][0], filelist)
             dlg.Update(1, "计算结束")
             wx.Sleep(1)
@@ -281,11 +287,10 @@ class TabSingleCam():
             self.mtx = mtx
             self.dist = dist
             # update the database
+            dlg.Update(2, "更新校准失败的文件信息...")
             self._set_rejected_flags(rej_list)
-            dlg.Update(2, "更新校准失败的文件信息")
-            wx.Sleep(1)
-            self._save_each_image_rt(rvecs, tvecs, cal_list)
-            dlg.Update(3, "保存标定结果到数据库")
+            dlg.Update(3, "保存标定结果到数据库...")
+            self._save_each_image_rt_rpje(rvecs, tvecs, rpjes, cal_list)
             wx.Sleep(1)
             dlg.Destroy()
             # update tree ctrl
@@ -296,12 +301,13 @@ class TabSingleCam():
             self.db.modify_data(self.DB_TABLENAME,
                                 f'''SET isreject=1 WHERE filename=\'{f}\' ''')
 
-    def _save_each_image_rt(self, rvecs, tvecs, filelist):
+    def _save_each_image_rt_rpje(self, rvecs, tvecs, rpjes, filelist):
         if len(rvecs) == len(filelist):
-            for f, rv, tv in zip(filelist, rvecs, tvecs):
+            for f, rv, tv, rpje in zip(filelist, rvecs, tvecs, rpjes):
                 # convert rt vecs into quat
                 R, _ = cv2.Rodrigues(rv)
                 q = rot2quat(R)
+                rpje = "{:.3f}".format(float(rpje))
                 self.db.modify_data(
                     self.DB_TABLENAME, f'''SET isreject=0, 
                                         qw={float(q[0])}, 
@@ -310,7 +316,8 @@ class TabSingleCam():
                                         qz={float(q[3])},
                                         tx={float(tv[0])},
                                         ty={float(tv[1])},
-                                        tz={float(tv[2])} 
+                                        tz={float(tv[2])},
+                                        rpje={float(rpje)} 
                                         WHERE filename=\'{f}\' ''')
         else:
             logger.debug(f'please check the file list')
