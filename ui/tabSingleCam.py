@@ -6,6 +6,7 @@ from loguru import logger
 from utils.storage import LocalStorage
 from utils.calib import CalibChessboard, quat2rot, rot2quat
 from ui.imagepanel import ImagePanel
+from ui.vtkpanel import VTKPanel
 
 
 class TabSingleCam():
@@ -138,6 +139,8 @@ class TabSingleCam():
 
         # vtk panel
         # camera poses
+        self.camera_pose_view = VTKPanel(self.tab, wx.Size(200, 200))
+        self.main_h_sizer.Add(self.camera_pose_view, 1, wx.ALIGN_CENTER_VERTICAL, 5)
         # TODO
 
         # register callback
