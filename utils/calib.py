@@ -70,7 +70,7 @@ class CalibChessboard():
         self.COL_COR = col-1
         self.CELLSIZE = cellsize
         self.criteria = (cv2.TERM_CRITERIA_EPS +
-                         cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+                         cv2.TERM_CRITERIA_MAX_ITER, 3000, 0.00001)
 
         # 构建角点真实世界坐标系
         self.objp = np.zeros((self.COL_COR*self.ROW_COR, 3), np.float32)
@@ -116,12 +116,12 @@ class CalibChessboard():
 
     # 查找角点
     def find_corners(self, grayimg: np.array):
-        ret, corners = cv2.findChessboardCorners(
-            grayimg, (self.ROW_COR, self.COL_COR), None)
+        ret, sub_corners = cv2.findChessboardCornersSB(
+            grayimg, (self.ROW_COR, self.COL_COR), cv2.CALIB_CB_NORMALIZE_IMAGE | cv2.CALIB_CB_EXHAUSTIVE | cv2.CALIB_CB_ACCURACY | cv2.CALIB_CB_MARKER)
 
         if ret is True:
             sub_corners = cv2.cornerSubPix(
-                grayimg, corners, (5, 5), (-1, -1), self.criteria)
+                grayimg, sub_corners, (19, 19), (-1, -1), self.criteria)
             return ret, sub_corners
         else:
             return ret, None

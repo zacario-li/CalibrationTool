@@ -226,7 +226,7 @@ class TabSingleCam():
         item = evt.GetItem()
 
     def on_paint_main_imageview(self, evt):
-        dc = wx.BufferedPaintDC(self.m_main_image_view)
+        # dc = wx.BufferedPaintDC(self.m_main_image_view)
         pass
 
     # 加载图片文件
@@ -270,7 +270,7 @@ class TabSingleCam():
             self.db.write_data(
                 self.DB_TABLENAME, f'null, \'{self.current_dir}\', \'{item}\', 0, null, null, null, null, null, null, null, null')
             (keep_going, skip) = dlg.Update(count, f'added {count} images')
-        wx.Sleep(1)
+        # wx.Sleep(1)
         dlg.Destroy()
         # update tree ctrl
         self.update_treectrl()
@@ -305,10 +305,11 @@ class TabSingleCam():
                 "标定", "正在标定...", maximum=3, parent=self.tab, style=wx.PD_APP_MODAL | wx.PD_AUTO_HIDE)
             dlg.Update(0, "开始计算")
             # 执行校准，并得到结果
+            ## TODO put into a new thread
             ret, mtx, dist, rvecs, tvecs, rpjes, rej_list, cal_list = calib.single_calib(
                 results[0][0], filelist)
             dlg.Update(1, "计算结束")
-            wx.Sleep(1)
+            # wx.Sleep(1)
             self.rpjerr = ret
             self.mtx = mtx
             self.dist = dist
@@ -317,7 +318,7 @@ class TabSingleCam():
             self._set_rejected_flags(rej_list)
             dlg.Update(3, "保存标定结果到数据库...")
             self._save_each_image_rt_rpje(rvecs, tvecs, rpjes, cal_list)
-            wx.Sleep(1)
+            # wx.Sleep(1)
             dlg.Destroy()
             # update tree ctrl
             self.update_treectrl()
