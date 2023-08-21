@@ -1,4 +1,5 @@
 import os
+import threading
 import cv2
 import wx
 from loguru import logger
@@ -140,7 +141,8 @@ class TabSingleCam():
         # vtk panel
         # camera poses
         self.camera_pose_view = VTKPanel(self.tab, wx.Size(200, 200))
-        self.main_h_sizer.Add(self.camera_pose_view, 1, wx.ALIGN_CENTER_VERTICAL, 5)
+        self.main_h_sizer.Add(self.camera_pose_view, 1,
+                              wx.ALIGN_CENTER_VERTICAL, 5)
         # TODO
 
         # register callback
@@ -222,6 +224,7 @@ class TabSingleCam():
                 tree.SetItemImage(newItem, self.icon_ok)
             tree.Expand(dirroot)
 
+    # 当左键点击图像列表中的item时，触发此处理
     def on_tree_item_select(self, evt):
         id = evt.GetItem()
         rootid = self.m_treeCtl_images.GetRootItem()
@@ -256,6 +259,7 @@ class TabSingleCam():
 
         self.m_main_image_view.Refresh()
 
+    # 当右键点击图像列表中的item时，触发此处理
     def on_tree_item_right_click(self, evt):
         item = evt.GetItem()
 
@@ -329,35 +333,47 @@ class TabSingleCam():
             else:
                 cellsize = float(self.m_textCtrl_cellsize.GetValue())
 
-            # 创建单目校准类
-            calib = CalibChessboard(row, col, cellsize)
             dlg = wx.ProgressDialog(
                 "标定", "正在标定...", maximum=3, parent=self.tab, style=wx.PD_APP_MODAL | wx.PD_AUTO_HIDE)
             dlg.Update(0, "开始计算")
-            # 执行校准，并得到结果
-            # TODO put into a new thread
-            ret, mtx, dist, rvecs, tvecs, rpjes, rej_list, cal_list = calib.single_calib(
-                results[0][0], filelist)
-            dlg.Update(1, "计算结束")
-            # wx.Sleep(1)
-            self.rpjerr = ret
-            self.mtx = mtx
-            self.dist = dist
-            # update the database
-            dlg.Update(2, "更新校准失败的文件信息...")
-            self._set_rejected_flags(rej_list)
-            dlg.Update(3, "保存标定结果到数据库...")
-            self._save_each_image_rt_rpje(rvecs, tvecs, rpjes, cal_list)
-            # wx.Sleep(1)
-            dlg.Destroy()
-            # update tree ctrl
-            self.update_treectrl()
+            thread = threading.Thread(target=self._run_camera_calibration_task, args=(
+                row, col, cellsize, results, filelist, dlg))
+            thread.start()
 
+    # 相机校准线程
+    def _run_camera_calibration_task(self, row, col, cellsize, results, filelist, dlg):
+        # 创建单目校准类
+        calib = CalibChessboard(row, col, cellsize)
+        # 执行校准，并得到结果
+        # TODO put into a new thread
+        ret, mtx, dist, rvecs, tvecs, rpjes, rej_list, cal_list = calib.single_calib(
+            results[0][0], filelist)
+        wx.CallAfter(self._camera_calibration_task_done, dlg, ret,
+                     mtx, dist, rvecs, tvecs, rpjes, rej_list, cal_list)
+
+    def _camera_calibration_task_done(self, dlg, ret, mtx, dist, rvecs, tvecs, rpjes, rej_list, cal_list):
+        dlg.Update(1, "计算结束")
+        # wx.Sleep(1)
+        self.rpjerr = ret
+        self.mtx = mtx
+        self.dist = dist
+        # update the database
+        dlg.Update(2, "更新校准失败的文件信息...")
+        self._set_rejected_flags(rej_list)
+        dlg.Update(3, "保存标定结果到数据库...")
+        self._save_each_image_rt_rpje(rvecs, tvecs, rpjes, cal_list)
+        # wx.Sleep(1)
+        dlg.Destroy()
+        # update tree ctrl
+        self.update_treectrl()
+
+    # 把无法找到角点的图片列表写入数据库
     def _set_rejected_flags(self, filelist):
         for f in filelist:
             self.db.modify_data(self.DB_TABLENAME,
                                 f'''SET isreject=1 WHERE filename=\'{f}\' ''')
 
+    # 把标定结果写入数据库
     def _save_each_image_rt_rpje(self, rvecs, tvecs, rpjes, filelist):
         if len(rvecs) == len(filelist):
             for f, rv, tv, rpje in zip(filelist, rvecs, tvecs, rpjes):
