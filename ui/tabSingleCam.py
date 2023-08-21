@@ -1,18 +1,20 @@
+import os
 import cv2
 import wx
-import os
-from pathlib import Path
+from loguru import logger
+
 from utils.storage import LocalStorage
 from utils.calib import CalibChessboard, quat2rot, rot2quat
-from loguru import logger
+from ui.imagepanel import ImagePanel
 
 
 class TabSingleCam():
     def __init__(self, parent, tab):
         self.tab = tab
         # global var
-        self.current_dir = None
+        self.current_root_dir = None
         self.db = self.init_db()
+
         # intrinsic and distortion coef, also reprojection error
         self.mtx = None
         self.dist = None
@@ -129,12 +131,12 @@ class TabSingleCam():
         self.main_h_sizer.Add(self.m_treeCtl_images, 1, wx.EXPAND, 5)
 
         # image view
-        self.m_main_image_view = wx.StaticBitmap(
-            self.tab, size=wx.Size(800, 600))
-        self.m_main_image_view.SetScaleMode(wx.StaticBitmap.Scale_AspectFill)
+        self.m_main_image_view = ImagePanel(self.tab, wx.Size(800, 600))
 
-        self.main_h_sizer.Add(self.m_main_image_view, 3, wx.EXPAND, 5)
+        self.main_h_sizer.Add(self.m_main_image_view, 3,
+                              wx.ALIGN_CENTER_VERTICAL, 5)
 
+        # vtk panel
         # camera poses
         # TODO
 
@@ -147,7 +149,6 @@ class TabSingleCam():
                       self.on_tree_item_select, self.m_treeCtl_images)
         self.tab.Bind(wx.EVT_TREE_ITEM_RIGHT_CLICK,
                       self.on_tree_item_right_click, self.m_treeCtl_images)
-        self.tab.Bind(wx.EVT_PAINT, self.on_paint_main_imageview)
 
     def init_db(self):
         # db init
@@ -211,37 +212,63 @@ class TabSingleCam():
         filelist = [f[1] for f in results]
         rpjes = [r[2] for r in results]
         dirroot = tree.AddRoot('文件名:(重投影误差)', image=0)
-        tree.SelectItem(dirroot)
         if len(filelist) > 0:
             for fname, r in zip(filelist, rpjes):
                 newItem = tree.AppendItem(dirroot, f'{fname}:({str(r)})')
+                tree.SelectItem(newItem)
                 tree.SetItemImage(newItem, self.icon_ok)
             tree.Expand(dirroot)
 
     def on_tree_item_select(self, evt):
+        id = evt.GetItem()
+        rootid = self.m_treeCtl_images.GetRootItem()
+        if rootid != id:
+            SCALE_RATIO = 1920/800
+            fullname = self.m_treeCtl_images.GetItemText(id)
+            filename = fullname.split(':')[0]
+            status = fullname.split(':')[1]
+            image_data = cv2.imread(os.path.join(
+                self.current_root_dir, filename))
+            # draw corners
+            if status != '(None)':
+                row = int(self.m_textCtrl_row.GetValue())
+                col = int(self.m_textCtrl_col.GetValue())
+                # 读取单元格边长，如果留空，默认值为 1.0 mm
+                if len(self.m_textCtrl_cellsize.GetValue()) == 0:
+                    cellsize = 1.0
+                else:
+                    cellsize = float(self.m_textCtrl_cellsize.GetValue())
+                calib_instance = CalibChessboard(row, col, cellsize)
+                _, cors = calib_instance.find_corners(
+                    cv2.cvtColor(image_data, cv2.COLOR_BGR2GRAY))
+                calib_instance.draw_corners(image_data, cors)
+
+            image_data = cv2.cvtColor(image_data, cv2.COLOR_BGR2RGB)
+            image_data = cv2.resize(
+                image_data, (int(1920/SCALE_RATIO), int(1080/SCALE_RATIO)))
+            self.m_main_image_view.set_bitmap(wx.Bitmap.FromBuffer(
+                image_data.shape[1], image_data.shape[0], image_data))
+        else:
+            self.m_main_image_view.set_bitmap(wx.Bitmap(800, 600))
+
         self.m_main_image_view.Refresh()
 
     def on_tree_item_right_click(self, evt):
-        self.m_main_image_view.Refresh()
         item = evt.GetItem()
-
-    def on_paint_main_imageview(self, evt):
-        # dc = wx.BufferedPaintDC(self.m_main_image_view)
-        pass
 
     # 加载图片文件
     def on_select_file_path(self, evt):
         dir_dialog = wx.DirDialog(
             None, "选择校准图像路径", style=wx.DD_DEFAULT_STYLE | wx.DD_NEW_DIR_BUTTON)
         if dir_dialog.ShowModal() == wx.ID_OK:
-            self.current_dir = dir_dialog.GetPath()
-            self.m_textCtrl1.SetValue(self.current_dir)
+            self.current_root_dir = dir_dialog.GetPath()
+            self.m_textCtrl1.SetValue(self.current_root_dir)
             self.m_calibrate_btn.Enable(False)
         else:
             return
         dir_dialog.Destroy()
 
-        images = self.list_images_with_suffix(self.current_dir)
+        images = self.list_images_with_suffix(self.current_root_dir)
         # check if there is any images
         if len(images) > 0:
             self.m_calibrate_btn.Enable(True)
@@ -268,7 +295,7 @@ class TabSingleCam():
         for item in images:
             count += 1
             self.db.write_data(
-                self.DB_TABLENAME, f'null, \'{self.current_dir}\', \'{item}\', 0, null, null, null, null, null, null, null, null')
+                self.DB_TABLENAME, f'null, \'{self.current_root_dir}\', \'{item}\', 0, null, null, null, null, null, null, null, null')
             (keep_going, skip) = dlg.Update(count, f'added {count} images')
         # wx.Sleep(1)
         dlg.Destroy()
@@ -305,7 +332,7 @@ class TabSingleCam():
                 "标定", "正在标定...", maximum=3, parent=self.tab, style=wx.PD_APP_MODAL | wx.PD_AUTO_HIDE)
             dlg.Update(0, "开始计算")
             # 执行校准，并得到结果
-            ## TODO put into a new thread
+            # TODO put into a new thread
             ret, mtx, dist, rvecs, tvecs, rpjes, rej_list, cal_list = calib.single_calib(
                 results[0][0], filelist)
             dlg.Update(1, "计算结束")
