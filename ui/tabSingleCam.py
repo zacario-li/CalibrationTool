@@ -2,6 +2,7 @@ import os
 import threading
 import cv2
 import wx
+import json
 from loguru import logger
 
 from utils.storage import LocalStorage
@@ -56,7 +57,7 @@ class TabSingleCam():
 
         # 组建标定板pattern设置区域
         '''
-        |标定板行数|__|标定板列数|__|标定板单元格边长(mm)|__|开始标定|
+        |标定板行数|__|标定板列数|__|标定板单元格边长(mm)|__|开始标定|保存标定结果|
         '''
         pattern_border = 1
         self.m_staticText_row = wx.StaticText(
@@ -103,6 +104,12 @@ class TabSingleCam():
         self.m_calibrate_btn.Enable(False)
         self.checkerpattern_h_sizer.Add(
             self.m_calibrate_btn, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, pattern_border)
+
+        self.m_save_calibration_btn = wx.Button(
+            self.tab, wx.ID_ANY, u"保存标定结果", wx.DefaultPosition, wx.DefaultSize, 0)
+        self.m_save_calibration_btn.Enable(False)
+        self.checkerpattern_h_sizer.Add(
+            self.m_save_calibration_btn, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, pattern_border)
 
         self.m_staticText_warning = wx.StaticText(
             self.tab, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0)
@@ -154,6 +161,8 @@ class TabSingleCam():
                       self.on_tree_item_select, self.m_treeCtl_images)
         self.tab.Bind(wx.EVT_TREE_ITEM_RIGHT_CLICK,
                       self.on_tree_item_right_click, self.m_treeCtl_images)
+        self.tab.Bind(wx.EVT_BUTTON, self.on_save_calibration_results,
+                      self.m_save_calibration_btn)
 
     def init_db(self):
         # db init
@@ -221,6 +230,8 @@ class TabSingleCam():
             for fname, r in zip(filelist, rpjes):
                 newItem = tree.AppendItem(dirroot, f'{fname}:({str(r)})')
                 tree.SelectItem(newItem)
+                tree.EnsureVisible(newItem)
+                tree.EnableVisibleFocus(True)
                 tree.SetItemImage(newItem, self.icon_ok)
             tree.Expand(dirroot)
 
@@ -271,6 +282,7 @@ class TabSingleCam():
             self.current_root_dir = dir_dialog.GetPath()
             self.m_textCtrl1.SetValue(self.current_root_dir)
             self.m_calibrate_btn.Enable(False)
+            self.m_save_calibration_btn.Enable(False)
         else:
             return
         dir_dialog.Destroy()
@@ -340,12 +352,38 @@ class TabSingleCam():
                 row, col, cellsize, results, filelist, dlg))
             thread.start()
 
+    # 保存校准结果
+    def on_save_calibration_results(self, evt):
+        dlg = wx.FileDialog(self.tab, u"保存标定结果", wildcard='*.json',
+                            defaultFile='camera_parameters', style=wx.FD_SAVE)
+        if dlg.ShowModal() == wx.ID_OK:
+            path = dlg.GetPath()
+            # save code here
+            self._write_2_file(path, self.mtx, self.dist)
+        dlg.Destroy()
+        pass
+
+    def _write_2_file(self, filename, mtx, dist):
+        paramJsonStr = {
+            'version': '0.1',
+            'SN': '',
+            'Scheme': 'opencv',
+            'CameraParameters': {
+                'RadialDistortion': [dist.tolist()[0][0], dist.tolist()[0][1], dist.tolist()[0][-1]],
+                'TangentialDistortion': [dist.tolist()[0][2], dist.tolist()[0][3]],
+                'IntrinsicMatrix': mtx.tolist()
+            },
+            'ReprojectionError': self.rpjerr
+        }
+        with open(f'{filename}', 'w') as f:
+            json.dump(paramJsonStr, f, indent=4)
+        pass
+
     # 相机校准线程
     def _run_camera_calibration_task(self, row, col, cellsize, results, filelist, dlg):
         # 创建单目校准类
         calib = CalibChessboard(row, col, cellsize)
         # 执行校准，并得到结果
-        # TODO put into a new thread
         ret, mtx, dist, rvecs, tvecs, rpjes, rej_list, cal_list = calib.single_calib(
             results[0][0], filelist)
         wx.CallAfter(self._camera_calibration_task_done, dlg, ret,
@@ -362,10 +400,12 @@ class TabSingleCam():
         self._set_rejected_flags(rej_list)
         dlg.Update(3, "保存标定结果到数据库...")
         self._save_each_image_rt_rpje(rvecs, tvecs, rpjes, cal_list)
-        # wx.Sleep(1)
+        wx.Sleep(1)
         dlg.Destroy()
         # update tree ctrl
         self.update_treectrl()
+        # enalbe save
+        self.m_save_calibration_btn.Enable(True)
 
     # 把无法找到角点的图片列表写入数据库
     def _set_rejected_flags(self, filelist):
