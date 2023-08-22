@@ -102,6 +102,37 @@ class CalibChessboard():
         # TODO evaluate the results
         return ret, mtx, dist, rvecs, tvecs, perverrs, rejected_files, calibrated_files
 
+    # 双目校准
+    def stereo_calib(self, leftrootpath: str, rightrootpath: str, filelist: list):
+        objpoints = []  # 3d points in real world space
+        imgpoints_left = []  # 2d points in left image plane.
+        imgpoints_right = []  # 2d points in right image plane.
+        rejected_files = []  # 无法获取角点的图片列表
+        calibrated_files = []  # 校准成功的文件列表
+
+        for f in filelist:
+            leftimg = cv2.imread(f'{os.path.join(leftrootpath,f)}', 0)
+            rightimg = cv2.imread(f'{os.path.join(rightrootpath,f)}', 0)
+            ret_l, cors_l = self.find_corners(leftimg)
+            ret_r, cors_r = self.find_corners(rightimg)
+            if ret_l or ret_r is not True:
+                rejected_files.append(f)
+            else:
+                calibrated_files.append(f)
+                objpoints.append(self.objp)
+                imgpoints_left.append(cors_l)
+                imgpoints_right.append(cors_r)
+        # single calibrate
+        ret_l, mtx_l, dist_l, rvecs_l, tvecs_l, stdintri_l, stdextri_l, perverrs_l = cv2.calibrateCameraExtended(
+            objpoints, imgpoints_left, leftimg.shape[::-1], None, None)
+        ret_r, mtx_r, dist_r, rvecs_r, tvecs_r, stdintri_r, stdextri_r, perverrs_r = cv2.calibrateCameraExtended(
+            objpoints, imgpoints_right, rightimg.shape[::-1], None, None)
+        # stereo calibrate
+        ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, perviewerr = cv2.stereoCalibrateExtended(
+            objpoints, imgpoints_left, imgpoints_right, mtx_l, dist_l, mtx_r, dist_r, leftimg.shape[::-1], criteria=self.criteria)
+
+        return ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, perviewerr
+
     # 重投影误差
     def rpje(self, corners, r, t, cameraMatrix, distCoeffs):
         points_number = self.ROW_COR*self.COL_COR
