@@ -2,7 +2,7 @@ import wx
 
 
 class ImagePanel(wx.Panel):
-    def __init__(self, parent, size):
+    def __init__(self, parent, size=wx.DefaultSize):
         wx.Panel.__init__(self, parent, size=size)
         self.bitmap = wx.Bitmap(size)
         self.Bind(wx.EVT_PAINT, self.on_paint)
