@@ -21,7 +21,7 @@ class TabStereoCam():
         sizer.Add(self.m_layout_actions_btns, 1, wx.EXPAND, 5)
 
         # main view layout:v
-        self.m_layout_main_view = self._create_main_view_layout()
+        self.m_layout_main_view = self._create_main_view_layout(wx.Size(480,270))
         sizer.Add(self.m_layout_main_view, 20, wx.EXPAND, 5)
 
     def _create_path_load_layout(self):
@@ -66,7 +66,7 @@ class TabStereoCam():
             self.m_btn_save_calibration, 1, wx.EXPAND, 5)
         return m_layout_actions_btns
 
-    def _create_main_view_layout(self):
+    def _create_main_view_layout(self, bitmapsize:wx.Size):
         m_layout_main_view = wx.BoxSizer(wx.HORIZONTAL)
         # .
         self.m_layout_tree = wx.BoxSizer(wx.HORIZONTAL)
@@ -82,19 +82,17 @@ class TabStereoCam():
         # . layout
         self.m_statictext_left_name = wx.StaticText(
             self.tab, wx.ID_ANY, u"left name", wx.DefaultPosition, wx.DefaultSize, 0)
-        self.m_bitmap_left = wx.StaticBitmap(
-            self.tab, wx.ID_ANY, wx.NullBitmap, wx.DefaultPosition, wx.DefaultSize, 0)
+        self.m_bitmap_left = ImagePanel(self.tab, bitmapsize)
         self.m_layout_left_image.Add(
             self.m_statictext_left_name, 0, wx.ALIGN_CENTER | wx.ALL, 5)
-        self.m_layout_left_image.Add(self.m_bitmap_left, 5, wx.EXPAND, 5)
+        self.m_layout_left_image.Add(self.m_bitmap_left, 5, wx.ALIGN_CENTER_HORIZONTAL, 5)
 
         self.m_statictext_right_name = wx.StaticText(
             self.tab, wx.ID_ANY, u"right name", wx.DefaultPosition, wx.DefaultSize, 0)
-        self.m_bitmap_right = wx.StaticBitmap(
-            self.tab, wx.ID_ANY, wx.NullBitmap, wx.DefaultPosition, wx.DefaultSize, 0)
+        self.m_bitmap_right = ImagePanel(self.tab, bitmapsize)
         self.m_layout_right_image.Add(
             self.m_statictext_right_name, 0, wx.ALIGN_CENTER | wx.ALL, 5)
-        self.m_layout_right_image.Add(self.m_bitmap_right, 5, wx.EXPAND, 5)
+        self.m_layout_right_image.Add(self.m_bitmap_right, 5, wx.ALIGN_CENTER_HORIZONTAL, 5)
 
         self.m_layout_stereo_image_view.Add(
             self.m_layout_left_image, 1, wx.EXPAND, 5)
@@ -104,10 +102,11 @@ class TabStereoCam():
         # .. sub image view layout:v X 2
         m_layout_main_view.Add(self.m_layout_tree, 1, wx.EXPAND, 5)
         m_layout_main_view.Add(
-            self.m_layout_stereo_image_view, 3, wx.EXPAND, 5)
+            self.m_layout_stereo_image_view, 4, wx.EXPAND, 5)
         return m_layout_main_view
 
     def _init_checkerboard_loader(self, parent):
+
         pass
 
     def init_db(self):
@@ -171,3 +170,53 @@ class TabStereoCam():
                 tree.EnableVisibleFocus(True)
                 tree.SetItemImage(newItem, self.icon_ok)
             tree.Expand(dirroot)
+
+    def on_open_file_loader(self, evt):
+        pass 
+
+class StereoFileLoader(wx.Frame):
+    def __init__(self, parent):
+        wx.Frame.__init__(self, parent, id=wx.ID_ANY, size=wx.Size(600,200))
+        self.SetMinSize(self.GetSize())
+        self.SetMaxSize(self.GetSize())
+
+        # init ui
+        self.m_layout_main = wx.BoxSizer(wx.VERTICAL)
+        # .
+        self.m_layout_left_file = wx.BoxSizer(wx.HORIZONTAL)
+        self.m_layout_right_file = wx.BoxSizer(wx.HORIZONTAL)
+        self.m_layout_pattern_parameter = wx.BoxSizer(wx.HORIZONTAL)
+
+        self.m_statictext_left_label = wx.StaticText( self, wx.ID_ANY, u"left", wx.DefaultPosition, wx.DefaultSize, 0 )
+        self.m_layout_main.Add(self.m_statictext_left_label)
+        self.m_textctl_left_path = wx.TextCtrl(
+            self.tab, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0)
+        self.m_textctl_left_path.Enable(False)
+
+        self.m_layout_main.Add(self.m_layout_left_file)
+
+
+        self.m_statictext_right_label = wx.StaticText( self, wx.ID_ANY, u"right", wx.DefaultPosition, wx.DefaultSize, 0 )
+        self.m_layout_main.Add(self.m_statictext_right_label)
+        self.m_textctl_right_path = wx.TextCtrl(
+            self.tab, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0)
+        self.m_textctl_right_path.Enable(False)
+
+        self.m_layout_main.Add(self.m_layout_right_file)
+
+        self.m_staticline = wx.StaticLine(self, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.LI_HORIZONTAL )
+        self.m_layout_main.Add(self.m_staticline)
+
+        self.m_layout_main.Add(self.m_layout_pattern_parameter)
+
+        self.m_staticline2 = wx.StaticLine(self, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.LI_HORIZONTAL )
+        self.m_layout_main.Add(self.m_staticline2)
+
+        m_layout_dlgbtnsizer = wx.StdDialogButtonSizer()
+        self.m_sdbOK = wx.Button( self, wx.ID_OK )
+        m_layout_dlgbtnsizer.AddButton( self.m_sdbOK )
+        self.m_sdbCancel = wx.Button( self, wx.ID_CANCEL )
+        m_layout_dlgbtnsizer.AddButton( self.m_sdbCancel )
+        self.m_layout_main.Add(m_layout_dlgbtnsizer,1,wx.EXPAND,5)
+
+
