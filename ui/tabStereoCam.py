@@ -1,7 +1,9 @@
 import wx
 import os
+import threading
 from utils.storage import LocalStorage
 from ui.imagepanel import ImagePanel
+from utils.calib import CalibChessboard
 from loguru import logger
 
 
@@ -133,6 +135,8 @@ class TabStereoCam():
     def _register_all_callbacks(self):
         self.tab.Bind(wx.EVT_BUTTON, self.on_open_file_loader,
                       self.m_btn_load_files)
+        self.tab.Bind(wx.EVT_BUTTON, self.on_click_calibrate,
+                      self.m_btn_calibrate)
 
     def init_db(self):
         # db init
@@ -206,6 +210,42 @@ class TabStereoCam():
         dlg_file_loader.ShowModal()
         self.m_textctl_left_path.SetValue(self.current_leftroot)
         self.m_textctl_right_path.SetValue(self.current_rightroot)
+
+    def on_click_calibrate(self, evt):
+        sqlresult = self.db.retrive_data(
+            self.DB_TABLENAME, f'rootpath, cameraid, filename')
+        dlg = wx.ProgressDialog(
+            "标定",
+            "正在标定...",
+            maximum=3,
+            parent=self.tab,
+            style=wx.PD_APP_MODAL | wx.PD_AUTO_HIDE
+        )
+        dlg.Update(1, "开始计算")
+        thread = threading.Thread(target=self._run_camera_calibration_task,
+                                  args=(dlg, sqlresult))
+        thread.start()
+
+    def _run_camera_calibration_task(self, dlg, sqlresult):
+        results = sqlresult
+
+        left_file_list = [f for f in results if f[1] == 0]
+        right_file_list = [f for f in results if f[1] == 1]
+        row = int(self.current_row_cors)
+        col = int(self.current_col_cors)
+        cellsize = float(self.current_cellsize)
+
+        # 因为左右相机的图像命名相同，所以选左相机的图详列表名称
+        filelist = [f[2] for f in left_file_list]
+
+        calib = CalibChessboard(row, col, cellsize)
+        ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rej_list, calib_list = calib.stereo_calib(
+            left_file_list[0][0], right_file_list[0][0], filelist)
+        pass
+
+    def _camera_calibration_task_done(self, dlg):
+        pass
+
 
 class StereoFileLoader(wx.Dialog):
     def __init__(self, parent, pp):
@@ -347,7 +387,7 @@ class StereoFileLoader(wx.Dialog):
         self.pp.current_leftfile_list = self._list_images_with_suffix(lp)
         self.pp.current_rightfile_list = self._list_images_with_suffix(rp)
 
-        if len(self.pp.current_leftfile_list)>0 and len(self.pp.current_rightfile_list)>0:
+        if len(self.pp.current_leftfile_list) > 0 and len(self.pp.current_rightfile_list) > 0:
             self.pp.m_btn_calibrate.Enable()
         # progress
         count = 0
@@ -358,7 +398,7 @@ class StereoFileLoader(wx.Dialog):
                                 parent=self,
                                 style=wx.PD_APP_MODAL | wx.PD_AUTO_HIDE)
         self.pp.db.delete_data(self.pp.DB_TABLENAME, f"WHERE 1=1")
-        for litem,ritem in zip(self.pp.current_leftfile_list, self.pp.current_rightfile_list):
+        for litem, ritem in zip(self.pp.current_leftfile_list, self.pp.current_rightfile_list):
             count += 1
             self.pp.db.write_data(
                 self.pp.DB_TABLENAME, f'null, \'{lp}\', 0,\'{litem}\', 0, null, null, null, null, null, null, null, null')

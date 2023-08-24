@@ -115,7 +115,7 @@ class CalibChessboard():
             rightimg = cv2.imread(f'{os.path.join(rightrootpath,f)}', 0)
             ret_l, cors_l = self.find_corners(leftimg)
             ret_r, cors_r = self.find_corners(rightimg)
-            if ret_l or ret_r is not True:
+            if ret_l is not True or ret_r is not True:
                 rejected_files.append(f)
             else:
                 calibrated_files.append(f)
@@ -123,15 +123,20 @@ class CalibChessboard():
                 imgpoints_left.append(cors_l)
                 imgpoints_right.append(cors_r)
         # single calibrate
-        ret_l, mtx_l, dist_l, rvecs_l, tvecs_l, stdintri_l, stdextri_l, perverrs_l = cv2.calibrateCameraExtended(
+        ret_l, mtx_l, dist_l, rvecs_l, tvecs_l, stdintri_l, stdextri_l, pererr = cv2.calibrateCameraExtended(
             objpoints, imgpoints_left, leftimg.shape[::-1], None, None)
-        ret_r, mtx_r, dist_r, rvecs_r, tvecs_r, stdintri_r, stdextri_r, perverrs_r = cv2.calibrateCameraExtended(
+        ret_r, mtx_r, dist_r, rvecs_r, tvecs_r, stdintri_r, stdextri_r, pererr = cv2.calibrateCameraExtended(
             objpoints, imgpoints_right, rightimg.shape[::-1], None, None)
         # stereo calibrate
-        ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, perviewerr = cv2.stereoCalibrateExtended(
-            objpoints, imgpoints_left, imgpoints_right, mtx_l, dist_l, mtx_r, dist_r, leftimg.shape[::-1], criteria=self.criteria)
+        # ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F = cv2.stereoCalibrate(
+        #     objpoints, imgpoints_left, imgpoints_right, mtx_l, dist_l, mtx_r, dist_r, leftimg.shape[::-1], criteria=self.criteria)
+        # 创建旋转矩阵和平移向量的初始值
+        R = np.eye(3) # 3x3的单位矩阵
+        T = np.zeros((3, 1)) # 3x1的零向量
+        ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr = cv2.stereoCalibrateExtended(
+            objpoints, imgpoints_left, imgpoints_right, mtx_l, dist_l, mtx_r, dist_r, leftimg.shape[::-1], R,T, leftimg.shape[::-1], criteria=self.criteria)
 
-        return ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, perviewerr
+        return ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rejected_files, calibrated_files
 
     # 重投影误差
     def rpje(self, corners, r, t, cameraMatrix, distCoeffs):
