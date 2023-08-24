@@ -1,4 +1,5 @@
 import wx
+import os
 from utils.storage import LocalStorage
 from ui.imagepanel import ImagePanel
 from loguru import logger
@@ -14,6 +15,8 @@ class TabStereoCam():
         self.current_row_cors = ''
         self.current_col_cors = ''
         self.current_cellsize = ''
+        self.current_leftfile_list = []
+        self.current_rightfile_list = []
         # init ui
         sizer = wx.BoxSizer(wx.VERTICAL)
         self.tab.SetSizer(sizer)
@@ -71,11 +74,13 @@ class TabStereoCam():
 
         self.m_btn_calibrate = wx.Button(
             self.tab, wx.ID_ANY, u"开始标定", wx.DefaultPosition, wx.DefaultSize, 0)
+        self.m_btn_calibrate.Enable(False)
         m_layout_actions_btns.Add(
             self.m_btn_calibrate, 1, wx.EXPAND, 5)
 
         self.m_btn_save_calibration = wx.Button(
             self.tab, wx.ID_ANY, u"保存标定结果", wx.DefaultPosition, wx.DefaultSize, 0)
+        self.m_btn_save_calibration.Enable(False)
         m_layout_actions_btns.Add(
             self.m_btn_save_calibration, 1, wx.EXPAND, 5)
         return m_layout_actions_btns
@@ -164,19 +169,24 @@ class TabStereoCam():
 
     # 左侧树形目录显示每张标定结果的控件
     def create_treectrl(self):
+        self.iconlist = wx.ImageList(16, 16)
+        self.icon_ok = self.iconlist.Add(wx.ArtProvider.GetBitmap(
+            wx.ART_INFORMATION, wx.ART_OTHER, (16, 16)))
+        self.icon_q = self.iconlist.Add(wx.ArtProvider.GetBitmap(
+            wx.ART_CROSS_MARK, wx.ART_OTHER, (16, 16)))
         tree = wx.TreeCtrl(self.tab)
-        # tree.AssignImageList(self.iconlist)
+        tree.AssignImageList(self.iconlist)
         return tree
 
     # 更新目录条目信息 TODO
     def update_treectrl(self, all: bool = False):
-        tree = self.m_treeCtl_images
+        tree = self.m_treectrl
         tree.DeleteAllItems()
         # retrive qualified images from db
         if all is False:
-            condi = f'WHERE isreject=0'
+            condi = f'WHERE isreject=0 AND cameraid=0'
         else:
-            condi = ''
+            condi = 'WHERE cameraid=0'
         results = self.db.retrive_data(
             self.DB_TABLENAME, f'rootpath, filename, rpje', condi)
         filelist = [f[1] for f in results]
@@ -194,7 +204,8 @@ class TabStereoCam():
     def on_open_file_loader(self, evt):
         dlg_file_loader = self._init_checkerboard_loader(None, self)
         dlg_file_loader.ShowModal()
-
+        self.m_textctl_left_path.SetValue(self.current_leftroot)
+        self.m_textctl_right_path.SetValue(self.current_rightroot)
 
 class StereoFileLoader(wx.Dialog):
     def __init__(self, parent, pp):
@@ -332,6 +343,30 @@ class StereoFileLoader(wx.Dialog):
         self.pp.current_row_cors = row
         self.pp.current_col_cors = col
         self.pp.current_cellsize = cell
+        # load files
+        self.pp.current_leftfile_list = self._list_images_with_suffix(lp)
+        self.pp.current_rightfile_list = self._list_images_with_suffix(rp)
+
+        if len(self.pp.current_leftfile_list)>0 and len(self.pp.current_rightfile_list)>0:
+            self.pp.m_btn_calibrate.Enable()
+        # progress
+        count = 0
+        max_value = len(self.pp.current_leftfile_list)
+        dlg = wx.ProgressDialog("加载图像",
+                                "图片加载中，请稍后",
+                                maximum=max_value,
+                                parent=self,
+                                style=wx.PD_APP_MODAL | wx.PD_AUTO_HIDE)
+        self.pp.db.delete_data(self.pp.DB_TABLENAME, f"WHERE 1=1")
+        for litem,ritem in zip(self.pp.current_leftfile_list, self.pp.current_rightfile_list):
+            count += 1
+            self.pp.db.write_data(
+                self.pp.DB_TABLENAME, f'null, \'{lp}\', 0,\'{litem}\', 0, null, null, null, null, null, null, null, null')
+            self.pp.db.write_data(
+                self.pp.DB_TABLENAME, f'null, \'{rp}\', 1,\'{ritem}\', 0, null, null, null, null, null, null, null, null')
+            (keep_going, skip) = dlg.Update(count, f'added {count} images')
+        dlg.Destroy()
+        self.pp.update_treectrl()
         self.Destroy()
 
     def on_text_enter(self, evt):
@@ -345,6 +380,16 @@ class StereoFileLoader(wx.Dialog):
             self.m_btn_sdbOK.Enable()
         else:
             self.m_btn_sdbOK.Enable(False)
+
+    def _list_images_with_suffix(self, rootpath: str, suffix_list: list = ['png', 'jpg', 'jpeg', 'bmp']):
+        images = []
+        for f in os.listdir(rootpath):
+            # on macos, listdir will create a hidden file which name starts with '.', it can not be opened by opencv
+            if not f.startswith('.'):
+                suffix = f.rsplit('.', 1)[-1].lower()
+                if suffix in suffix_list:
+                    images.append(f)
+        return images
 
     def _register_callbacks(self):
         self.Bind(wx.EVT_BUTTON, self.on_select_file_path, self.m_btn_left)
