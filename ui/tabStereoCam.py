@@ -1,9 +1,11 @@
 import wx
 import os
+import cv2
+import json
 import threading
 from utils.storage import LocalStorage
 from ui.imagepanel import ImagePanel
-from utils.calib import CalibChessboard
+from utils.calib import CalibChessboard, quat2rot, rot2quat
 from loguru import logger
 
 
@@ -19,6 +21,17 @@ class TabStereoCam():
         self.current_cellsize = ''
         self.current_leftfile_list = []
         self.current_rightfile_list = []
+
+        # calib result
+        self.rpjerr = None
+        self.mtx1 = None
+        self.mtx2 = None
+        self.dist1 = None
+        self.dist2 = None
+        self.R = None
+        self.T = None
+        self.F = None
+        self.E = None
         # init ui
         sizer = wx.BoxSizer(wx.VERTICAL)
         self.tab.SetSizer(sizer)
@@ -137,6 +150,12 @@ class TabStereoCam():
                       self.m_btn_load_files)
         self.tab.Bind(wx.EVT_BUTTON, self.on_click_calibrate,
                       self.m_btn_calibrate)
+        self.tab.Bind(wx.EVT_BUTTON, self.on_save_calibration_results,
+                      self.m_btn_save_calibration)
+        self.tab.Bind(wx.EVT_TREE_SEL_CHANGING,
+                      self.on_tree_item_select, self.m_treectrl)
+        self.tab.Bind(wx.EVT_TREE_ITEM_RIGHT_CLICK,
+                      self.on_tree_item_right_click, self.m_treectrl)
 
     def init_db(self):
         # db init
@@ -205,6 +224,44 @@ class TabStereoCam():
                 tree.SetItemImage(newItem, self.icon_ok)
             tree.Expand(dirroot)
 
+    def on_tree_item_select(self, evt):
+        id = evt.GetItem()
+        rootid = self.m_treectrl.GetRootItem()
+        if rootid != id:
+            SCALE_RATIO = 1920/480
+            fullname = self.m_treectrl.GetItemText(id)
+            filename = fullname.split(':')[0]
+            status = fullname.split(':')[1]
+            limage_data = cv2.imread(os.path.join(self.current_leftroot, filename))
+            rimage_data = cv2.imread(os.path.join(self.current_rightroot, filename))
+            if status != '(None)':
+                row = int(self.current_row_cors)
+                col = int(self.current_col_cors)
+                cellsize = int(self.current_cellsize)
+                calib_instance = CalibChessboard(row, col, cellsize)
+                _, lcors = calib_instance.find_corners(
+                    cv2.cvtColor(limage_data, cv2.COLOR_BGR2GRAY))
+                _, rcors = calib_instance.find_corners(
+                    cv2.cvtColor(rimage_data, cv2.COLOR_BGR2GRAY))
+                calib_instance.draw_corners(limage_data, lcors)
+                calib_instance.draw_corners(rimage_data, rcors)
+            limage_data = cv2.cvtColor(limage_data, cv2.COLOR_BGR2RGB)
+            rimage_data = cv2.cvtColor(rimage_data, cv2.COLOR_BGR2RGB)
+            limage_data = cv2.resize(limage_data, (int(1920/SCALE_RATIO), int(1080/SCALE_RATIO)))
+            rimage_data = cv2.resize(rimage_data, (int(1920/SCALE_RATIO), int(1080/SCALE_RATIO)))
+            self.m_bitmap_left.set_bitmap(wx.Bitmap.FromBuffer(
+                limage_data.shape[1], limage_data.shape[0], limage_data))
+            self.m_bitmap_right.set_bitmap(wx.Bitmap.FromBuffer(
+                rimage_data.shape[1], rimage_data.shape[0], rimage_data))
+        else:
+            self.m_bitmap_left.set_bitmap(wx.Bitmap(480,270))
+            self.m_bitmap_right.set_bitmap(wx.Bitmap(480,270))
+        self.m_bitmap_left.Refresh()
+        self.m_bitmap_right.Refresh()
+
+    def on_tree_item_right_click(self, evt):
+        pass
+
     def on_open_file_loader(self, evt):
         dlg_file_loader = self._init_checkerboard_loader(None, self)
         dlg_file_loader.ShowModal()
@@ -226,6 +283,46 @@ class TabStereoCam():
                                   args=(dlg, sqlresult))
         thread.start()
 
+    def on_save_calibration_results(self, evt):
+        dlg = wx.FileDialog(self.tab, u"保存标定结果", wildcard='*.json',
+                            defaultFile='camera_parameters', style=wx.FD_SAVE)
+        if dlg.ShowModal() == wx.ID_OK:
+            path = dlg.GetPath()
+            # save code here
+            self._write_2_file(path)
+        dlg.Destroy()
+
+    def _write_2_file(self, filename):
+        dc1 = self.dist1
+        cm1 = self.mtx1
+        dc2 = self.dist2
+        cm2 = self.mtx2
+        r = self.R
+        t = self.T
+        e = self.E
+        f = self.F
+        paramJsonStr = {
+            'version': '0.1',
+            'SN': '',
+            'Scheme': 'opencv',
+            'CameraParameters1': {
+                'RadialDistortion': [dc1.tolist()[0][0], dc1.tolist()[0][1], dc1.tolist()[0][-1]],
+                'TangentialDistortion': [dc1.tolist()[0][2], dc1.tolist()[0][3]],
+                'IntrinsicMatrix': cm1.tolist()
+            },
+            'CameraParameters2': {
+                'RadialDistortion': [dc2.tolist()[0][0], dc2.tolist()[0][1], dc2.tolist()[0][-1]],
+                'TangentialDistortion': [dc2.tolist()[0][2], dc2.tolist()[0][3]],
+                'IntrinsicMatrix': cm2.tolist()
+            },
+            'RotationOfCamera2': r.tolist(),
+            'TranslationOfCamera2': t.reshape(-1).tolist(),
+            'FundamentalMatrix': f.tolist(),
+            'EssentialMatrix': e.tolist()
+        }
+        with open(f'{filename}', 'w') as f:
+            json.dump(paramJsonStr, f, indent=4)
+
     def _run_camera_calibration_task(self, dlg, sqlresult):
         results = sqlresult
 
@@ -241,10 +338,74 @@ class TabStereoCam():
         calib = CalibChessboard(row, col, cellsize)
         ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rej_list, calib_list = calib.stereo_calib(
             left_file_list[0][0], right_file_list[0][0], filelist)
-        pass
+        wx.CallAfter(self._camera_calibration_task_done, dlg, (ret, mtx_l0, dist_l0,
+                     mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rej_list, calib_list))
 
-    def _camera_calibration_task_done(self, dlg):
-        pass
+    def _camera_calibration_task_done(self, dlg, data: tuple):
+        dlg.Update(2, "计算结束")
+        self.rpjerr = data[0]
+        self.mtx1 = data[1]
+        self.dist1 = data[2]
+        self.mtx2 = data[3]
+        self.dist2 = data[4]
+        self.R = data[5]
+        self.T = data[6]
+        self.E = data[7]
+        self.F = data[8]
+        rvecs = data[9]
+        tvecs = data[10]
+        pererr = data[11]
+        rej_list = data[12]
+        calib_list = data[13]
+        dlg.Update(3, "保存标定结果到数据库...")
+        self._set_rejected_flags(rej_list)
+        self._save_each_image_rt_rpje((rvecs, tvecs, pererr, calib_list))
+        dlg.Destroy()
+        self.update_treectrl()
+        self.m_btn_save_calibration.Enable()
+
+    def _set_rejected_flags(self, rejlist: list):
+        for f in rejlist:
+            self.db.modify_data(self.DB_TABLENAME,
+                                f'''SET isreject=1 WHERE filename=\'{f}\' ''')
+
+    def _save_each_image_rt_rpje(self, data: tuple):
+        rvecs = data[0]
+        tvecs = data[1]
+        pererr = data[2]
+        calib_list = data[3]
+        if len(rvecs) == len(calib_list):
+            for f, rv, tv, rpje in zip(calib_list, rvecs, tvecs, pererr):
+                R, _ = cv2.Rodrigues(rv)
+                q = rot2quat(R)
+                lrpje = "{:.3f}".format(float(rpje[0]))
+                rrpje = "{:.3f}".format(float(rpje[1]))
+                self.db.modify_data(
+                    self.DB_TABLENAME,
+                    f'''SET isreject=0,
+                    qw={float(q[0])},
+                    qx={float(q[1])},
+                    qy={float(q[2])},
+                    qz={float(q[3])},
+                    tx={float(tv[0])},
+                    ty={float(tv[1])},
+                    tz={float(tv[2])},
+                    rpje={float(lrpje)} 
+                    WHERE filename=\'{f}\' AND cameraid=0
+                    ''')
+                self.db.modify_data(
+                    self.DB_TABLENAME,
+                    f'''SET isreject=0,
+                    qw={float(q[0])},
+                    qx={float(q[1])},
+                    qy={float(q[2])},
+                    qz={float(q[3])},
+                    tx={float(tv[0])},
+                    ty={float(tv[1])},
+                    tz={float(tv[2])},
+                    rpje={float(rrpje)} 
+                    WHERE filename=\'{f}\' AND cameraid=1
+                    ''')
 
 
 class StereoFileLoader(wx.Dialog):
