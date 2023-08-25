@@ -253,6 +253,8 @@ class TabStereoCam():
                 limage_data.shape[1], limage_data.shape[0], limage_data))
             self.m_bitmap_right.set_bitmap(wx.Bitmap.FromBuffer(
                 rimage_data.shape[1], rimage_data.shape[0], rimage_data))
+            self.m_statictext_left_name.SetLabel(filename)
+            self.m_statictext_right_name.SetLabel(filename)
         else:
             self.m_bitmap_left.set_bitmap(wx.Bitmap(480,270))
             self.m_bitmap_right.set_bitmap(wx.Bitmap(480,270))
