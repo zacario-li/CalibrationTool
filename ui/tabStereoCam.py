@@ -218,11 +218,11 @@ class TabStereoCam():
         if len(filelist) > 0:
             for fname, r in zip(filelist, rpjes):
                 newItem = tree.AppendItem(dirroot, f'{fname}:({str(r)})')
-                tree.SelectItem(newItem)
-                tree.EnsureVisible(newItem)
-                tree.EnableVisibleFocus(True)
                 tree.SetItemImage(newItem, self.icon_ok)
             tree.Expand(dirroot)
+            tree.SelectItem(newItem)
+            tree.EnsureVisible(newItem)
+            tree.EnableVisibleFocus(True)
 
     def on_tree_item_select(self, evt):
         id = evt.GetItem()
