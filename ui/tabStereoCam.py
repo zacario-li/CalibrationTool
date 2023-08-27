@@ -8,6 +8,9 @@ from ui.imagepanel import ImagePanel
 from utils.calib import CalibChessboard, quat2rot, rot2quat
 from loguru import logger
 
+IMAGE_VIEW_W = 480
+IMAGE_VIEW_H = 270
+
 
 class TabStereoCam():
     def __init__(self, parent, tab):
@@ -50,7 +53,7 @@ class TabStereoCam():
 
         # main view layout:v
         self.m_layout_main_view = self._create_main_view_layout(
-            wx.Size(480, 270))
+            wx.Size(IMAGE_VIEW_W, IMAGE_VIEW_H))
         sizer.Add(self.m_layout_main_view, 20, wx.EXPAND, 5)
 
         # callbacks
@@ -207,17 +210,26 @@ class TabStereoCam():
         tree.DeleteAllItems()
         # retrive qualified images from db
         if all is False:
-            condi = f'WHERE isreject=0 AND cameraid=0'
+            left_condi = f'WHERE isreject=0 AND cameraid=0'
+            right_condi = f'WHERE isreject=0 AND cameraid=1'
         else:
-            condi = 'WHERE cameraid=0'
-        results = self.db.retrive_data(
-            self.DB_TABLENAME, f'rootpath, filename, rpje', condi)
-        filelist = [f[1] for f in results]
-        rpjes = [r[2] for r in results]
-        dirroot = tree.AddRoot('文件名:(重投影误差)', image=0)
-        if len(filelist) > 0:
-            for fname, r in zip(filelist, rpjes):
-                newItem = tree.AppendItem(dirroot, f'{fname}:({str(r)})')
+            left_condi = 'WHERE cameraid=0'
+            right_condi = 'WHERE cameraid=1'
+
+        left_results = self.db.retrive_data(
+            self.DB_TABLENAME, f'rootpath, filename, rpje', left_condi)
+        right_results = self.db.retrive_data(
+            self.DB_TABLENAME, f'rootpath, filename, rpje', right_condi)
+        left_filelist = [f[1] for f in left_results]
+        right_filelist = [f[1] for f in right_results]
+        left_rpjes = [r[2] for r in left_results]
+        right_rpjes = [r[2] for r in right_results]
+
+        dirroot = tree.AddRoot('文件名:(左/右重投影误差)', image=0)
+        if len(left_filelist) > 0:
+            for lfname, lr, rfname, rr in zip(left_filelist, left_rpjes, right_filelist, right_rpjes):
+                newItem = tree.AppendItem(
+                    dirroot, f'{lfname},{rfname}:({str(lr)},{str(rr)})', data=[lfname, rfname])
                 tree.SetItemImage(newItem, self.icon_ok)
             tree.Expand(dirroot)
             tree.SelectItem(newItem)
@@ -228,13 +240,18 @@ class TabStereoCam():
         id = evt.GetItem()
         rootid = self.m_treectrl.GetRootItem()
         if rootid != id:
-            SCALE_RATIO = 1920/480
+            fnames = self.m_treectrl.GetItemData(id)
             fullname = self.m_treectrl.GetItemText(id)
-            filename = fullname.split(':')[0]
             status = fullname.split(':')[1]
-            limage_data = cv2.imread(os.path.join(self.current_leftroot, filename))
-            rimage_data = cv2.imread(os.path.join(self.current_rightroot, filename))
-            if status != '(None)':
+            limage_data = cv2.imread(os.path.join(
+                self.current_leftroot, fnames[0]))
+            rimage_data = cv2.imread(os.path.join(
+                self.current_rightroot, fnames[1]))
+            # 确定图像缩放比例，以便适配显示窗口
+            img_w = limage_data.shape[1]
+            img_h = limage_data.shape[0]
+            SCALE_RATIO = img_w/IMAGE_VIEW_W
+            if status != '(None,None)':
                 row = int(self.current_row_cors)
                 col = int(self.current_col_cors)
                 cellsize = int(self.current_cellsize)
@@ -247,17 +264,19 @@ class TabStereoCam():
                 calib_instance.draw_corners(rimage_data, rcors)
             limage_data = cv2.cvtColor(limage_data, cv2.COLOR_BGR2RGB)
             rimage_data = cv2.cvtColor(rimage_data, cv2.COLOR_BGR2RGB)
-            limage_data = cv2.resize(limage_data, (int(1920/SCALE_RATIO), int(1080/SCALE_RATIO)))
-            rimage_data = cv2.resize(rimage_data, (int(1920/SCALE_RATIO), int(1080/SCALE_RATIO)))
+            limage_data = cv2.resize(
+                limage_data, (int(img_w/SCALE_RATIO), int(img_h/SCALE_RATIO)))
+            rimage_data = cv2.resize(
+                rimage_data, (int(img_w/SCALE_RATIO), int(img_h/SCALE_RATIO)))
             self.m_bitmap_left.set_bitmap(wx.Bitmap.FromBuffer(
                 limage_data.shape[1], limage_data.shape[0], limage_data))
             self.m_bitmap_right.set_bitmap(wx.Bitmap.FromBuffer(
                 rimage_data.shape[1], rimage_data.shape[0], rimage_data))
-            self.m_statictext_left_name.SetLabel(filename)
-            self.m_statictext_right_name.SetLabel(filename)
+            self.m_statictext_left_name.SetLabel(fnames[0])
+            self.m_statictext_right_name.SetLabel(fnames[1])
         else:
-            self.m_bitmap_left.set_bitmap(wx.Bitmap(480,270))
-            self.m_bitmap_right.set_bitmap(wx.Bitmap(480,270))
+            self.m_bitmap_left.set_bitmap(wx.Bitmap(IMAGE_VIEW_W, IMAGE_VIEW_H))
+            self.m_bitmap_right.set_bitmap(wx.Bitmap(IMAGE_VIEW_W, IMAGE_VIEW_H))
         self.m_bitmap_left.Refresh()
         self.m_bitmap_right.Refresh()
 

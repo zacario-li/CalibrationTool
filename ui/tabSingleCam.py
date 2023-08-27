@@ -10,6 +10,9 @@ from utils.storage import LocalStorage
 from utils.calib import CalibChessboard, quat2rot, rot2quat
 from ui.imagepanel import ImagePanel
 
+IMAGE_VIEW_W = 800
+IMAGE_VIEW_H = 600
+
 
 class TabSingleCam():
     def __init__(self, parent, tab):
@@ -140,7 +143,7 @@ class TabSingleCam():
         self.main_h_sizer.Add(self.m_treeCtl_images, 1, wx.EXPAND, 5)
 
         # image view
-        self.m_main_image_view = ImagePanel(self.tab, wx.Size(800, 600))
+        self.m_main_image_view = ImagePanel(self.tab, wx.Size(IMAGE_VIEW_W, IMAGE_VIEW_H))
 
         self.main_h_sizer.Add(self.m_main_image_view, 3,
                               wx.ALIGN_CENTER_VERTICAL, 5)
@@ -242,12 +245,15 @@ class TabSingleCam():
         id = evt.GetItem()
         rootid = self.m_treeCtl_images.GetRootItem()
         if rootid != id:
-            SCALE_RATIO = 1920/800
             fullname = self.m_treeCtl_images.GetItemText(id)
             filename = fullname.split(':')[0]
             status = fullname.split(':')[1]
             image_data = cv2.imread(os.path.join(
                 self.current_root_dir, filename))
+            # 确定图像缩放比例，以便适配显示窗口
+            img_w = image_data.shape[1]
+            img_h = image_data.shape[0]
+            SCALE_RATIO = img_w/IMAGE_VIEW_W
             # draw corners
             if status != '(None)':
                 row = int(self.m_textCtrl_row.GetValue())
@@ -264,11 +270,11 @@ class TabSingleCam():
 
             image_data = cv2.cvtColor(image_data, cv2.COLOR_BGR2RGB)
             image_data = cv2.resize(
-                image_data, (int(1920/SCALE_RATIO), int(1080/SCALE_RATIO)))
+                image_data, (int(img_w/SCALE_RATIO), int(img_h/SCALE_RATIO)))
             self.m_main_image_view.set_bitmap(wx.Bitmap.FromBuffer(
                 image_data.shape[1], image_data.shape[0], image_data))
         else:
-            self.m_main_image_view.set_bitmap(wx.Bitmap(800, 600))
+            self.m_main_image_view.set_bitmap(wx.Bitmap(IMAGE_VIEW_W, IMAGE_VIEW_H))
 
         self.m_main_image_view.Refresh()
 
