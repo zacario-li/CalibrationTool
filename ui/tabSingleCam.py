@@ -143,7 +143,8 @@ class TabSingleCam():
         self.main_h_sizer.Add(self.m_treeCtl_images, 1, wx.EXPAND, 5)
 
         # image view
-        self.m_main_image_view = ImagePanel(self.tab, wx.Size(IMAGE_VIEW_W, IMAGE_VIEW_H))
+        self.m_main_image_view = ImagePanel(
+            self.tab, wx.Size(IMAGE_VIEW_W, IMAGE_VIEW_H))
 
         self.main_h_sizer.Add(self.m_main_image_view, 3,
                               wx.ALIGN_CENTER_VERTICAL, 5)
@@ -154,7 +155,7 @@ class TabSingleCam():
             from ui.vtkpanel import VTKPanel
             self.camera_pose_view = VTKPanel(self.tab, wx.Size(200, 200))
             self.main_h_sizer.Add(self.camera_pose_view, 1,
-                                wx.ALIGN_CENTER_VERTICAL, 5)
+                                  wx.ALIGN_CENTER_VERTICAL, 5)
         # TODO
 
         # register callback
@@ -274,7 +275,8 @@ class TabSingleCam():
             self.m_main_image_view.set_bitmap(wx.Bitmap.FromBuffer(
                 image_data.shape[1], image_data.shape[0], image_data))
         else:
-            self.m_main_image_view.set_bitmap(wx.Bitmap(IMAGE_VIEW_W, IMAGE_VIEW_H))
+            self.m_main_image_view.set_bitmap(
+                wx.Bitmap(IMAGE_VIEW_W, IMAGE_VIEW_H))
 
         self.m_main_image_view.Refresh()
 
@@ -391,8 +393,9 @@ class TabSingleCam():
     def _run_camera_calibration_task(self, row, col, cellsize, results, filelist, dlg):
         # 创建单目校准类
         calib = CalibChessboard(row, col, cellsize)
+        CALIB = calib.mono_calib_parallel if calib.USE_MT is True else calib.mono_calib
         # 执行校准，并得到结果
-        ret, mtx, dist, rvecs, tvecs, rpjes, rej_list, cal_list = calib.single_calib(
+        ret, mtx, dist, rvecs, tvecs, rpjes, rej_list, cal_list = CALIB(
             results[0][0], filelist)
         wx.CallAfter(self._camera_calibration_task_done, dlg, ret,
                      mtx, dist, rvecs, tvecs, rpjes, rej_list, cal_list)

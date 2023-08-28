@@ -275,8 +275,10 @@ class TabStereoCam():
             self.m_statictext_left_name.SetLabel(fnames[0])
             self.m_statictext_right_name.SetLabel(fnames[1])
         else:
-            self.m_bitmap_left.set_bitmap(wx.Bitmap(IMAGE_VIEW_W, IMAGE_VIEW_H))
-            self.m_bitmap_right.set_bitmap(wx.Bitmap(IMAGE_VIEW_W, IMAGE_VIEW_H))
+            self.m_bitmap_left.set_bitmap(
+                wx.Bitmap(IMAGE_VIEW_W, IMAGE_VIEW_H))
+            self.m_bitmap_right.set_bitmap(
+                wx.Bitmap(IMAGE_VIEW_W, IMAGE_VIEW_H))
         self.m_bitmap_left.Refresh()
         self.m_bitmap_right.Refresh()
 
@@ -354,11 +356,14 @@ class TabStereoCam():
         cellsize = float(self.current_cellsize)
 
         # 因为左右相机的图像命名相同，所以选左相机的图详列表名称
-        filelist = [f[2] for f in left_file_list]
+        lfilelist = [f[2] for f in left_file_list]
+        rfilelist = [f[2] for f in right_file_list]
 
         calib = CalibChessboard(row, col, cellsize)
-        ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rej_list, calib_list = calib.stereo_calib(
-            left_file_list[0][0], right_file_list[0][0], filelist)
+        CALIB = calib.stereo_calib_parallel if calib.USE_MT is True else calib.stereo_calib
+
+        ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rej_list, calib_list = CALIB(
+            left_file_list[0][0], right_file_list[0][0], lfilelist, rfilelist)
         wx.CallAfter(self._camera_calibration_task_done, dlg, (ret, mtx_l0, dist_l0,
                      mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rej_list, calib_list))
 
@@ -388,7 +393,9 @@ class TabStereoCam():
     def _set_rejected_flags(self, rejlist: list):
         for f in rejlist:
             self.db.modify_data(self.DB_TABLENAME,
-                                f'''SET isreject=1 WHERE filename=\'{f}\' ''')
+                                f'''SET isreject=1 WHERE filename=\'{f[0]}\' ''')
+            self.db.modify_data(self.DB_TABLENAME,
+                                f'''SET isreject=1 WHERE filename=\'{f[1]}\' ''')
 
     def _save_each_image_rt_rpje(self, data: tuple):
         rvecs = data[0]
@@ -412,7 +419,7 @@ class TabStereoCam():
                     ty={float(tv[1])},
                     tz={float(tv[2])},
                     rpje={float(lrpje)} 
-                    WHERE filename=\'{f}\' AND cameraid=0
+                    WHERE filename=\'{f[0]}\' AND cameraid=0
                     ''')
                 self.db.modify_data(
                     self.DB_TABLENAME,
@@ -425,7 +432,7 @@ class TabStereoCam():
                     ty={float(tv[1])},
                     tz={float(tv[2])},
                     rpje={float(rrpje)} 
-                    WHERE filename=\'{f}\' AND cameraid=1
+                    WHERE filename=\'{f[1]}\' AND cameraid=1
                     ''')
 
 
