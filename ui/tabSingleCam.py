@@ -159,17 +159,8 @@ class TabSingleCam():
         # TODO
 
         # register callback
-        self.tab.Bind(wx.EVT_BUTTON, self.on_select_file_path,
-                      self.m_select_file_path)
-        self.tab.Bind(wx.EVT_BUTTON, self.on_click_calibrate,
-                      self.m_calibrate_btn)
-        self.tab.Bind(wx.EVT_TREE_SEL_CHANGING,
-                      self.on_tree_item_select, self.m_treeCtl_images)
-        self.tab.Bind(wx.EVT_TREE_ITEM_RIGHT_CLICK,
-                      self.on_tree_item_right_click, self.m_treeCtl_images)
-        self.tab.Bind(wx.EVT_BUTTON, self.on_save_calibration_results,
-                      self.m_save_calibration_btn)
-
+        self._register_all_callbacks()
+        
     def init_db(self):
         # db init
         # create a single camera calib table
@@ -201,6 +192,18 @@ class TabSingleCam():
             return None
         else:
             return db
+
+    def _register_all_callbacks(self):
+        self.tab.Bind(wx.EVT_BUTTON, self.on_select_file_path,
+                      self.m_select_file_path)
+        self.tab.Bind(wx.EVT_BUTTON, self.on_click_calibrate,
+                      self.m_calibrate_btn)
+        self.tab.Bind(wx.EVT_TREE_SEL_CHANGING,
+                      self.on_tree_item_select, self.m_treeCtl_images)
+        self.tab.Bind(wx.EVT_TREE_ITEM_RIGHT_CLICK,
+                      self.on_tree_item_right_click, self.m_treeCtl_images)
+        self.tab.Bind(wx.EVT_BUTTON, self.on_save_calibration_results,
+                      self.m_save_calibration_btn)
 
     def list_images_with_suffix(self, rootpath: str, suffix_list: list = ['png', 'jpg', 'jpeg', 'bmp']):
         images = []
@@ -234,7 +237,7 @@ class TabSingleCam():
         dirroot = tree.AddRoot('文件名:(重投影误差)', image=0)
         if len(filelist) > 0:
             for fname, r in zip(filelist, rpjes):
-                newItem = tree.AppendItem(dirroot, f'{fname}:({str(r)})')
+                newItem = tree.AppendItem(dirroot, f'{fname}:({str(r)})', data=[fname, r])
                 tree.SetItemImage(newItem, self.icon_ok)
             tree.Expand(dirroot)
             tree.SelectItem(newItem)
@@ -283,6 +286,23 @@ class TabSingleCam():
     # 当右键点击图像列表中的item时，触发此处理
     def on_tree_item_right_click(self, evt):
         item = evt.GetItem()
+        rootid = self.m_treeCtl_images.GetRootItem()
+        if rootid != item:
+            fname, rpje = self.m_treeCtl_images.GetItemData(item)
+            menu = wx.Menu()
+            itm = menu.Append(wx.ID_ANY, "删除并重新标定")
+            self._temp_right_menu_data = fname
+            self.tab.Bind(wx.EVT_MENU, self.on_recalib, itm)
+            self.m_treeCtl_images.PopupMenu(menu, evt.GetPoint())
+            menu.Destroy()
+
+    # popup menu
+    def on_recalib(self, evt):
+        # set selected image to be rejected in db
+        self.db.modify_data(self.DB_TABLENAME,
+                            f'''SET isreject=1 WHERE filename=\'{self._temp_right_menu_data}\' ''')
+        right_click_evt = wx.CommandEvent(wx.EVT_BUTTON.typeId, self.m_calibrate_btn.GetId())
+        self.m_calibrate_btn.GetEventHandler().ProcessEvent(right_click_evt)
 
     # 加载图片文件
     def on_select_file_path(self, evt):
@@ -344,7 +364,7 @@ class TabSingleCam():
             # do calibration
             # 读取数据库中的文件列表
             results = self.db.retrive_data(
-                self.DB_TABLENAME, f'rootpath, filename')
+                self.DB_TABLENAME, f'rootpath, filename', f'WHERE isreject=0')
             filelist = [f[1] for f in results]
             # 读取标定板行列数
             row = int(self.m_textCtrl_row.GetValue())
