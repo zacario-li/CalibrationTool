@@ -596,6 +596,7 @@ class StereoFileLoader(wx.Dialog):
             (keep_going, skip) = dlg.Update(count, f'added {count} images')
         dlg.Destroy()
         self.pp.update_treectrl()
+        self.EndModal(wx.ID_OK)
         self.Destroy()
 
     def on_text_enter(self, evt):
