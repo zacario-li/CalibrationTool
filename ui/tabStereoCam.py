@@ -225,11 +225,24 @@ class TabStereoCam():
         left_rpjes = [r[2] for r in left_results]
         right_rpjes = [r[2] for r in right_results]
 
+        # 判定是否为最大误差值，并标红
+        if left_rpjes[0] is not None:
+            left_max_err = max(left_rpjes)
+        else:
+            left_max_err = None
+        if right_rpjes[0] is not None:
+            right_max_err = max(right_rpjes)
+        else:
+            right_max_err = None
+
         dirroot = tree.AddRoot('文件名:(左/右重投影误差)', image=0)
         if len(left_filelist) > 0:
             for lfname, lr, rfname, rr in zip(left_filelist, left_rpjes, right_filelist, right_rpjes):
                 newItem = tree.AppendItem(
                     dirroot, f'{lfname},{rfname}:({str(lr)},{str(rr)})', data=[lfname, rfname])
+                if left_max_err is not None and right_max_err is not None:
+                    if left_max_err == lr or right_max_err == rr:
+                        tree.SetItemTextColour(newItem, wx.RED)
                 tree.SetItemImage(newItem, self.icon_ok)
             tree.Expand(dirroot)
             tree.SelectItem(newItem)
@@ -300,7 +313,8 @@ class TabStereoCam():
                             f'''SET isreject=1 WHERE filename=\'{self._temp_right_menu_data[0]}\' ''')
         self.db.modify_data(self.DB_TABLENAME,
                             f'''SET isreject=1 WHERE filename=\'{self._temp_right_menu_data[1]}\' ''')
-        right_click_evt = wx.CommandEvent(wx.EVT_BUTTON.typeId, self.m_btn_calibrate.GetId())
+        right_click_evt = wx.CommandEvent(
+            wx.EVT_BUTTON.typeId, self.m_btn_calibrate.GetId())
         self.m_btn_calibrate.GetEventHandler().ProcessEvent(right_click_evt)
 
     def on_open_file_loader(self, evt):

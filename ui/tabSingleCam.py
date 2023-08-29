@@ -160,7 +160,7 @@ class TabSingleCam():
 
         # register callback
         self._register_all_callbacks()
-        
+
     def init_db(self):
         # db init
         # create a single camera calib table
@@ -234,10 +234,21 @@ class TabSingleCam():
             self.DB_TABLENAME, f'rootpath, filename, rpje', condi)
         filelist = [f[1] for f in results]
         rpjes = [r[2] for r in results]
+
+        # 判定是否为最大误差值，并标红
+        if rpjes[0] is not None:
+            max_err = max(rpjes)
+        else:
+            max_err = None
+
         dirroot = tree.AddRoot('文件名:(重投影误差)', image=0)
         if len(filelist) > 0:
             for fname, r in zip(filelist, rpjes):
-                newItem = tree.AppendItem(dirroot, f'{fname}:({str(r)})', data=[fname, r])
+                newItem = tree.AppendItem(
+                    dirroot, f'{fname}:({str(r)})', data=[fname, r])
+                if max_err is not None:
+                    if max_err == r:
+                        tree.SetItemTextColour(newItem, wx.RED)
                 tree.SetItemImage(newItem, self.icon_ok)
             tree.Expand(dirroot)
             tree.SelectItem(newItem)
@@ -301,7 +312,8 @@ class TabSingleCam():
         # set selected image to be rejected in db
         self.db.modify_data(self.DB_TABLENAME,
                             f'''SET isreject=1 WHERE filename=\'{self._temp_right_menu_data}\' ''')
-        right_click_evt = wx.CommandEvent(wx.EVT_BUTTON.typeId, self.m_calibrate_btn.GetId())
+        right_click_evt = wx.CommandEvent(
+            wx.EVT_BUTTON.typeId, self.m_calibrate_btn.GetId())
         self.m_calibrate_btn.GetEventHandler().ProcessEvent(right_click_evt)
 
     # 加载图片文件
