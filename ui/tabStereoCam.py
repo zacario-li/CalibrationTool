@@ -183,7 +183,7 @@ class TabStereoCam():
                             ty float, 
                             tz float,
                             rpje float'''
-        self.DB_FILENAME = 'stereo.db'
+        self.DB_FILENAME = ':memory:'
         self.DB_TABLENAME = 'stereo'
         db = LocalStorage(self.DB_FILENAME)
         ret = db.create_table(self.DB_TABLENAME, TABLE_SQL_STR)
@@ -283,7 +283,25 @@ class TabStereoCam():
         self.m_bitmap_right.Refresh()
 
     def on_tree_item_right_click(self, evt):
-        pass
+        item = evt.GetItem()
+        rootid = self.m_treectrl.GetRootItem()
+        if rootid != item:
+            lfname, rfname = self.m_treectrl.GetItemData(item)
+            menu = wx.Menu()
+            itm = menu.Append(wx.ID_ANY, "删除并重新标定")
+            self._temp_right_menu_data = [lfname, rfname]
+            self.tab.Bind(wx.EVT_MENU, self.on_recalib, itm)
+            self.m_treectrl.PopupMenu(menu, evt.GetPoint())
+            menu.Destroy()
+
+    # popup menu
+    def on_recalib(self, evt):
+        self.db.modify_data(self.DB_TABLENAME,
+                            f'''SET isreject=1 WHERE filename=\'{self._temp_right_menu_data[0]}\' ''')
+        self.db.modify_data(self.DB_TABLENAME,
+                            f'''SET isreject=1 WHERE filename=\'{self._temp_right_menu_data[1]}\' ''')
+        right_click_evt = wx.CommandEvent(wx.EVT_BUTTON.typeId, self.m_btn_calibrate.GetId())
+        self.m_btn_calibrate.GetEventHandler().ProcessEvent(right_click_evt)
 
     def on_open_file_loader(self, evt):
         dlg_file_loader = self._init_checkerboard_loader(None, self)
@@ -293,7 +311,7 @@ class TabStereoCam():
 
     def on_click_calibrate(self, evt):
         sqlresult = self.db.retrive_data(
-            self.DB_TABLENAME, f'rootpath, cameraid, filename')
+            self.DB_TABLENAME, f'rootpath, cameraid, filename', f'WHERE isreject=0')
         dlg = wx.ProgressDialog(
             "标定",
             "正在标定...",

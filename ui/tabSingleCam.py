@@ -183,7 +183,7 @@ class TabSingleCam():
                             ty float, 
                             tz float,
                             rpje float'''
-        self.DB_FILENAME = 'single.db'
+        self.DB_FILENAME = ':memory:'
         self.DB_TABLENAME = 'single'
         db = LocalStorage(self.DB_FILENAME)
         ret = db.create_table(self.DB_TABLENAME, TABLE_SQL_STR)

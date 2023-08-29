@@ -20,7 +20,7 @@ class TabHandEye():
         filename text, isreject bool, qw float, qx float, qy float, qz float, tx float, ty float, tz float
         '''
         TABLE_SQL_STR = 'filename text, isreject bool, qw float, qx float, qy float, qz float, tx float, ty float, tz float'
-        self.DB_FILENAME = 'handeye.db'
+        self.DB_FILENAME = ':memory:'
         self.DB_TABLENAME = 'handeye'
         db = LocalStorage(self.DB_FILENAME)
         ret = db.create_table(self.DB_TABLENAME, TABLE_SQL_STR)
