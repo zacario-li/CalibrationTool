@@ -234,6 +234,7 @@ class TabStereoCam():
             right_max_err = max(right_rpjes)
         else:
             right_max_err = None
+        max_high_count = 0
 
         dirroot = tree.AddRoot('文件名:(左/右重投影误差)', image=0)
         if len(left_filelist) > 0:
@@ -241,7 +242,8 @@ class TabStereoCam():
                 newItem = tree.AppendItem(
                     dirroot, f'{lfname},{rfname}:({str(lr)},{str(rr)})', data=[lfname, rfname])
                 if left_max_err is not None and right_max_err is not None:
-                    if left_max_err == lr or right_max_err == rr:
+                    if (left_max_err == lr or right_max_err == rr) and max_high_count < 2:
+                        max_high_count += 1
                         tree.SetItemTextColour(newItem, wx.RED)
                 tree.SetItemImage(newItem, self.icon_ok)
             tree.Expand(dirroot)
