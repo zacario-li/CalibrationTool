@@ -241,6 +241,7 @@ class TabSingleCam():
             max_err = max(rpjes)
         else:
             max_err = None
+        max_high_count = 0
 
         dirroot = tree.AddRoot('文件名:(重投影误差)', image=0)
         if len(filelist) > 0:
@@ -248,7 +249,8 @@ class TabSingleCam():
                 newItem = tree.AppendItem(
                     dirroot, f'{fname}:({str(r)})', data=[fname, r])
                 if max_err is not None:
-                    if max_err == r:
+                    if max_err == r and max_high_count < 1:
+                        max_high_count += 1
                         tree.SetItemTextColour(newItem, wx.RED)
                 tree.SetItemImage(newItem, self.icon_ok)
             tree.Expand(dirroot)
