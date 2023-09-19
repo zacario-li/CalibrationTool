@@ -16,6 +16,7 @@ class TabStereoCam():
     def __init__(self, parent, tab):
         self.tab = tab
         # global var
+        self.image_shape = None
         self.db = self.init_db()
         self.current_leftroot = ''
         self.current_rightroot = ''
@@ -360,6 +361,7 @@ class TabStereoCam():
             'version': '0.1',
             'SN': '',
             'Scheme': 'opencv',
+            'ImageShape':[self.image_shape[0], self.image_shape[1]],
             'CameraParameters1': {
                 'RadialDistortion': [dc1.tolist()[0][0], dc1.tolist()[0][1], dc1.tolist()[0][-1]],
                 'TangentialDistortion': [dc1.tolist()[0][2], dc1.tolist()[0][3]],
@@ -394,8 +396,9 @@ class TabStereoCam():
         calib = CalibChessboard(row, col, cellsize)
         CALIB = calib.stereo_calib_parallel if calib.USE_MT is True else calib.stereo_calib
 
-        ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rej_list, calib_list = CALIB(
+        ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rej_list, calib_list, shape = CALIB(
             left_file_list[0][0], right_file_list[0][0], lfilelist, rfilelist)
+        self.image_shape = shape
         wx.CallAfter(self._camera_calibration_task_done, dlg, (ret, mtx_l0, dist_l0,
                      mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rej_list, calib_list))
 

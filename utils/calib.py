@@ -118,7 +118,7 @@ class CalibChessboard():
             objpoints, imgpoints, gray.shape[::-1], None, None)
 
         # TODO evaluate the results
-        return ret, mtx, dist, rvecs, tvecs, perverrs, rejected_files, calibrated_files
+        return ret, mtx, dist, rvecs, tvecs, perverrs, rejected_files, calibrated_files, gray.shape[::-1]
 
     # parallen mono calib
     @timer_decorator
@@ -147,7 +147,7 @@ class CalibChessboard():
             objpoints, imgpoints, image_for_shape.shape[::-1], None, None)
 
         # TODO evaluate the results
-        return ret, mtx, dist, rvecs, tvecs, perverrs, rejected_files, calibrated_files
+        return ret, mtx, dist, rvecs, tvecs, perverrs, rejected_files, calibrated_files, image_for_shape.shape[::-1]
 
     # 双目校准
     @timer_decorator
@@ -184,7 +184,7 @@ class CalibChessboard():
         ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr = cv2.stereoCalibrateExtended(
             objpoints, imgpoints_left, imgpoints_right, mtx_l, dist_l, mtx_r, dist_r, leftimg.shape[::-1], R, T, criteria=self.criteria)
 
-        return ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rejected_files, calibrated_files
+        return ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rejected_files, calibrated_files, leftimg.shape[::-1]
 
     @timer_decorator
     def stereo_calib_parallel(self, leftrootpath: str, rightrootpath: str, leftfilelist: list, rightfilelist: list):
@@ -222,7 +222,7 @@ class CalibChessboard():
         ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr = cv2.stereoCalibrateExtended(
             objpoints, imgpoints_left, imgpoints_right, mtx_l, dist_l, mtx_r, dist_r, image_for_shape.shape[::-1], R, T, criteria=self.criteria)
 
-        return ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rejected_files, calibrated_files
+        return ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rejected_files, calibrated_files, image_for_shape.shape[::-1]
 
     # 重投影误差
 

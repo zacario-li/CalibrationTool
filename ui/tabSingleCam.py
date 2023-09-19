@@ -18,6 +18,7 @@ class TabSingleCam():
     def __init__(self, parent, tab):
         self.tab = tab
         # global var
+        self.image_shape = None
         self.current_root_dir = None
         self.db = self.init_db()
 
@@ -410,6 +411,7 @@ class TabSingleCam():
             'version': '0.1',
             'SN': '',
             'Scheme': 'opencv',
+            'ImageShape':[self.image_shape[0], self.image_shape[1]],
             'CameraParameters': {
                 'RadialDistortion': [dist.tolist()[0][0], dist.tolist()[0][1], dist.tolist()[0][-1]],
                 'TangentialDistortion': [dist.tolist()[0][2], dist.tolist()[0][3]],
@@ -427,8 +429,9 @@ class TabSingleCam():
         calib = CalibChessboard(row, col, cellsize)
         CALIB = calib.mono_calib_parallel if calib.USE_MT is True else calib.mono_calib
         # 执行校准，并得到结果
-        ret, mtx, dist, rvecs, tvecs, rpjes, rej_list, cal_list = CALIB(
+        ret, mtx, dist, rvecs, tvecs, rpjes, rej_list, cal_list, shape = CALIB(
             results[0][0], filelist)
+        self.image_shape = shape
         wx.CallAfter(self._camera_calibration_task_done, dlg, ret,
                      mtx, dist, rvecs, tvecs, rpjes, rej_list, cal_list)
 
