@@ -58,6 +58,7 @@ class TabHandEye():
         self.m_textCtrl8 = wx.TextCtrl(
             self.tab, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0)
         m_layout_he_dataloader_A.Add(self.m_textCtrl8, 10, wx.ALL, 5)
+        self.m_textCtrl8.Enable(False)
 
         self.m_button8 = wx.Button(
             self.tab, wx.ID_ANY, u"Load A", wx.DefaultPosition, wx.DefaultSize, 0)
@@ -71,9 +72,10 @@ class TabHandEye():
         self.m_textCtrl9 = wx.TextCtrl(
             self.tab, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0)
         m_layout_he_dataloader_BY.Add(self.m_textCtrl9, 10, wx.ALL, 5)
+        self.m_textCtrl9.Enable(False)
 
         self.m_button9 = wx.Button(
-            self.tab, wx.ID_ANY, u"Load B or Y", wx.DefaultPosition, wx.DefaultSize, 0)
+            self.tab, wx.ID_ANY, u"Load B", wx.DefaultPosition, wx.DefaultSize, 0)
         m_layout_he_dataloader_BY.Add(self.m_button9, 0, wx.ALL, 5)
 
         m_layout_he_dataloader_path_main.Add(
@@ -84,6 +86,7 @@ class TabHandEye():
         self.m_textCtrl10 = wx.TextCtrl(
             self.tab, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0)
         m_layout_he_dataloader_param.Add(self.m_textCtrl10, 10, wx.ALL, 5)
+        self.m_textCtrl10.Enable(False)
 
         self.m_button10 = wx.Button(
             self.tab, wx.ID_ANY, u"Load Camera Params", wx.DefaultPosition, wx.DefaultSize, 0)
