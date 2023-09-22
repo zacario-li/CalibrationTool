@@ -135,6 +135,7 @@ class TabHandEye():
         return m_layout_he_view
 
     def _register_all_callbacks(self):
+        self.tab.Bind(wx.EVT_RADIOBOX, self.on_calib_type_select, self.m_radioBox_calib_type)
         self.tab.Bind(wx.EVT_BUTTON, self.on_select_file_path,
                       self.m_btn_loadA)
         self.tab.Bind(wx.EVT_BUTTON, self.on_select_file_path,
@@ -230,3 +231,12 @@ class TabHandEye():
 
     def on_save_calibration_results(self, evt):
         pass
+
+    def on_calib_type_select(self, evt):
+        idx = self.m_radioBox_calib_type.GetSelection()
+        if 0 == idx:
+            self.m_radioBox_axxb_calib_method.Enable()
+            self.m_radioBox_axyb_calib_method.Enable(False)
+        else:
+            self.m_radioBox_axxb_calib_method.Enable(False)
+            self.m_radioBox_axyb_calib_method.Enable()
