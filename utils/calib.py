@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import os
 import time
+import json
 from multiprocessing import Pool
 from functools import partial
 from loguru import logger
@@ -16,8 +17,33 @@ def timer_decorator(func):
         return result
     return wrapper
 
+def load_camera_param(filename:str):
+    # load parameters
+    with open(filename) as f:
+        jstr = json.load(f)
 
-def quat2rot(q: np.array):
+    NEED_TRANS = False
+    if 'Scheme' in jstr:
+        if jstr['Scheme'] != 'opencv':
+            NEED_TRANS = True
+            
+    ELEMENT_NAME = 'CameraParameters'
+    if 'CameraParameters1' in jstr:
+        ELEMENT_NAME = 'CameraParameters1'
+
+    intri = jstr[f'{ELEMENT_NAME}']['IntrinsicMatrix']
+    dist_r = jstr[f'{ELEMENT_NAME}']['RadialDistortion']
+    dist_t = jstr[f'{ELEMENT_NAME}']['TangentialDistortion']
+    mtx = np.array(intri)
+    if NEED_TRANS:
+        mtx = mtx.T
+    dist = np.array(
+        [dist_r[:2] + dist_t + [dist_r[-1]]]
+    )
+    return mtx, dist
+
+
+def quat_2_rot(q: np.array):
     q = q / np.linalg.norm(q)
     q0 = q[0]
     qx = q[1]
@@ -40,7 +66,7 @@ def quat2rot(q: np.array):
     return R
 
 
-def rot2quat(R: np.array):
+def rot_2_quat(R: np.array):
     # Convert to quaternion
     tr = np.trace(R)
     q = np.zeros(4)
@@ -72,7 +98,7 @@ def rot2quat(R: np.array):
     return q
 
 
-def combineRT(R, Tx, Ty, Tz):
+def combine_RT(R, Tx, Ty, Tz):
     M = np.hstack([R, [[Tx], [Ty], [Tz]]])
     M = np.vstack((M, [0, 0, 0, 1]))  # convert it to homogeneous matrix
     return M

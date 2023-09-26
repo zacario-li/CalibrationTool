@@ -7,7 +7,7 @@ import json
 from loguru import logger
 
 from utils.storage import LocalStorage
-from utils.calib import CalibChessboard, quat2rot, rot2quat
+from utils.calib import CalibChessboard, quat_2_rot, rot_2_quat
 from ui.imagepanel import ImagePanel
 
 IMAGE_VIEW_W = 800
@@ -467,7 +467,7 @@ class TabSingleCam():
             for f, rv, tv, rpje in zip(filelist, rvecs, tvecs, rpjes):
                 # convert rt vecs into quat
                 R, _ = cv2.Rodrigues(rv)
-                q = rot2quat(R)
+                q = rot_2_quat(R)
                 rpje = "{:.3f}".format(float(rpje))
                 self.db.modify_data(
                     self.DB_TABLENAME, f'''SET isreject=0, 

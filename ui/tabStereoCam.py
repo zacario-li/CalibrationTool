@@ -5,7 +5,7 @@ import json
 import threading
 from utils.storage import LocalStorage
 from ui.imagepanel import ImagePanel
-from utils.calib import CalibChessboard, quat2rot, rot2quat
+from utils.calib import CalibChessboard, quat_2_rot, rot_2_quat
 from loguru import logger
 
 IMAGE_VIEW_W = 480
@@ -442,7 +442,7 @@ class TabStereoCam():
         if len(rvecs) == len(calib_list):
             for f, rv, tv, rpje in zip(calib_list, rvecs, tvecs, pererr):
                 R, _ = cv2.Rodrigues(rv)
-                q = rot2quat(R)
+                q = rot_2_quat(R)
                 lrpje = "{:.3f}".format(float(rpje[0]))
                 rrpje = "{:.3f}".format(float(rpje[1]))
                 self.db.modify_data(

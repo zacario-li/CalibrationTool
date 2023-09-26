@@ -1,5 +1,6 @@
 import wx
 from utils.storage import LocalStorage
+from utils.calib import CalibChessboard, load_camera_param
 from loguru import logger
 
 
@@ -11,6 +12,8 @@ class TabHandEye():
         self.A_path = None
         self.B_path = None
         self.cam_param_path = None
+        self.cam_mtx = None
+        self.cam_dist = None
         # init ui
         self.m_layout_he_main = wx.BoxSizer(wx.VERTICAL)
         self.tab.SetSizer(self.m_layout_he_main)
@@ -210,11 +213,14 @@ class TabHandEye():
                 if src_btn_id == Cam_id:
                     self.cam_param_path = filepath
                     self.m_textCtrl_cam_param_path.SetLabel(self.cam_param_path)
+                    # load cam params
+                    self.cam_mtx, self.cam_dist = load_camera_param(filepath)
         else:
             dlg = wx.DirDialog(self.tab, "选择标定板图像路径", style=wx.DD_DEFAULT_STYLE|wx.DD_NEW_DIR_BUTTON)
             if dlg.ShowModal() == wx.ID_OK:
                 self.B_path = dlg.GetPath()
                 self.m_textCtrl_load_b_path.SetLabel(self.B_path)
+
         # check if A/B/Cam is ready, then enable the calib button
         a_p = self.m_textCtrl_load_a_path.GetValue()
         b_p = self.m_textCtrl_load_b_path.GetValue()
