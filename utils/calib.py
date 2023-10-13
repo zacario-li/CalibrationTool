@@ -321,7 +321,6 @@ class CalibChessboard():
 
     # 查找角点
     def find_corners(self, grayimg: np.array):
-        ret, cor_o = cv2.findChessboardCorners(grayimg, (self.ROW_COR, self.COL_COR))
         ret, sub_corners = cv2.findChessboardCornersSB(
             grayimg, (self.ROW_COR, self.COL_COR), cv2.CALIB_CB_NORMALIZE_IMAGE | cv2.CALIB_CB_EXHAUSTIVE | cv2.CALIB_CB_ACCURACY | cv2.CALIB_CB_MARKER)
 

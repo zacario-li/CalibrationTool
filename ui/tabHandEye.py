@@ -1,6 +1,7 @@
 import wx
 import os
 import cv2
+import numpy as np
 from utils.storage import LocalStorage
 from utils.calib import CalibChessboard, HandEye, load_camera_param
 from loguru import logger
@@ -334,8 +335,7 @@ class TabHandEye():
             R_b2c.append(R)
             t_b2c.append(t)
         r_c2g, t_c2g = cv2.calibrateHandEye(r_g2n, t_g2n, R_b2c, t_b2c, method=cv2.CALIB_HAND_EYE_HORAUD)
-        print(r_c2g)
-        print(t_c2g)
+        self.m_statictext_calib_err_result.SetLabel(np.array2string(r_c2g)+'\n'+np.array2string(t_c2g))
 
         return r_c2g, t_c2g
 
