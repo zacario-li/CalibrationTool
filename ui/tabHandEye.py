@@ -1,6 +1,8 @@
 import wx
+import os
+import cv2
 from utils.storage import LocalStorage
-from utils.calib import CalibChessboard, load_camera_param
+from utils.calib import CalibChessboard, HandEye, load_camera_param
 from loguru import logger
 
 
@@ -65,14 +67,14 @@ class TabHandEye():
 
         m_layout_he_dataloader_A = wx.BoxSizer(wx.HORIZONTAL)
 
-        self.m_textCtrl_load_a_path = wx.TextCtrl(
+        self.m_textctrl_load_a_path = wx.TextCtrl(
             self.tab, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0)
         m_layout_he_dataloader_A.Add(
-            self.m_textCtrl_load_a_path, 10, wx.ALL, 1)
-        self.m_textCtrl_load_a_path.Enable(False)
+            self.m_textctrl_load_a_path, 10, wx.ALL, 1)
+        self.m_textctrl_load_a_path.Enable(False)
 
         self.m_btn_loadA = wx.Button(
-            self.tab, wx.ID_ANY, u"Load A", wx.DefaultPosition, wx.DefaultSize, 0)
+            self.tab, wx.ID_ANY, u"Load A(quaternions+trans csv file)", wx.DefaultPosition, wx.DefaultSize, 0)
         m_layout_he_dataloader_A.Add(self.m_btn_loadA, 0, wx.ALL, 1)
 
         m_layout_he_dataloader_path_main.Add(
@@ -80,14 +82,14 @@ class TabHandEye():
 
         m_layout_he_dataloader_B = wx.BoxSizer(wx.HORIZONTAL)
 
-        self.m_textCtrl_load_b_path = wx.TextCtrl(
+        self.m_textctrl_load_b_path = wx.TextCtrl(
             self.tab, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0)
         m_layout_he_dataloader_B.Add(
-            self.m_textCtrl_load_b_path, 10, wx.ALL, 1)
-        self.m_textCtrl_load_b_path.Enable(False)
+            self.m_textctrl_load_b_path, 10, wx.ALL, 1)
+        self.m_textctrl_load_b_path.Enable(False)
 
         self.m_btn_loadB = wx.Button(
-            self.tab, wx.ID_ANY, u"Load B", wx.DefaultPosition, wx.DefaultSize, 0)
+            self.tab, wx.ID_ANY, u"Load B(images)", wx.DefaultPosition, wx.DefaultSize, 0)
         m_layout_he_dataloader_B.Add(self.m_btn_loadB, 0, wx.ALL, 1)
 
         m_layout_he_dataloader_path_main.Add(
@@ -95,11 +97,11 @@ class TabHandEye():
 
         m_layout_he_dataloader_param = wx.BoxSizer(wx.HORIZONTAL)
 
-        self.m_textCtrl_cam_param_path = wx.TextCtrl(
+        self.m_textctrl_cam_param_path = wx.TextCtrl(
             self.tab, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0)
         m_layout_he_dataloader_param.Add(
-            self.m_textCtrl_cam_param_path, 10, wx.ALL, 1)
-        self.m_textCtrl_cam_param_path.Enable(False)
+            self.m_textctrl_cam_param_path, 10, wx.ALL, 1)
+        self.m_textctrl_cam_param_path.Enable(False)
 
         self.m_btn_load_cam_param = wx.Button(
             self.tab, wx.ID_ANY, u"Load Camera Params", wx.DefaultPosition, wx.DefaultSize, 0)
@@ -123,6 +125,48 @@ class TabHandEye():
         self.m_btn_save.Enable(False)
         return m_layout_he_dataloader
 
+    def _create_ui_he_checkerboard_param(self):
+        m_layout_he_cb_param = wx.BoxSizer(wx.HORIZONTAL)
+
+        self.m_statictext_cb_row = wx.StaticText(
+            self.tab, wx.ID_ANY, u"标定板行数", wx.DefaultPosition, wx.DefaultSize, 0
+        )
+        m_layout_he_cb_param.Add(
+            self.m_statictext_cb_row, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 5
+        )
+        self.m_textctrl_cb_row = wx.TextCtrl(
+            self.tab, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0
+        )
+        m_layout_he_cb_param.Add(
+            self.m_textctrl_cb_row, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 5
+        )
+
+        self.m_statictext_cb_col = wx.StaticText(
+            self.tab, wx.ID_ANY, u"标定板列数", wx.DefaultPosition, wx.DefaultSize, 0
+        )
+        m_layout_he_cb_param.Add(
+            self.m_statictext_cb_col, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 5)
+        self.m_textctrl_cb_col = wx.TextCtrl(
+            self.tab, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0
+        )
+        m_layout_he_cb_param.Add(
+            self.m_textctrl_cb_col, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 5)
+
+        self.m_statictext_cb_cellsize = wx.StaticText(
+            self.tab, wx.ID_ANY, u"标定板单元格边长(mm)", wx.DefaultPosition, wx.DefaultSize, 0
+        )
+        m_layout_he_cb_param.Add(
+            self.m_statictext_cb_cellsize, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 5
+        )
+        self.m_textctrl_cb_cellsize = wx.TextCtrl(
+            self.tab, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0
+        )
+        m_layout_he_cb_param.Add(
+            self.m_textctrl_cb_cellsize, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 5
+        )
+
+        return m_layout_he_cb_param
+
     def _create_ui_he_view(self):
         m_layout_he_view = wx.BoxSizer(wx.VERTICAL)
 
@@ -138,7 +182,8 @@ class TabHandEye():
         return m_layout_he_view
 
     def _register_all_callbacks(self):
-        self.tab.Bind(wx.EVT_RADIOBOX, self.on_calib_type_select, self.m_radioBox_calib_type)
+        self.tab.Bind(wx.EVT_RADIOBOX, self.on_calib_type_select,
+                      self.m_radioBox_calib_type)
         self.tab.Bind(wx.EVT_BUTTON, self.on_select_file_path,
                       self.m_btn_loadA)
         self.tab.Bind(wx.EVT_BUTTON, self.on_select_file_path,
@@ -148,6 +193,36 @@ class TabHandEye():
         self.tab.Bind(wx.EVT_BUTTON, self.on_click_calibrate, self.m_btn_calib)
         self.tab.Bind(
             wx.EVT_BUTTON, self.on_save_calibration_results, self.m_btn_save)
+        
+        # text changed evt
+        self.m_textctrl_cb_row.Bind(wx.EVT_TEXT, self.on_cb_text_changed)
+        self.m_textctrl_cb_col.Bind(wx.EVT_TEXT, self.on_cb_text_changed)
+        self.m_textctrl_cb_cellsize.Bind(wx.EVT_TEXT, self.on_cb_text_changed)
+
+    def _update_btns(self):
+        # check if A/B/Cam is ready, then enable the calib button
+        a_p = self.m_textctrl_load_a_path.GetValue()
+        b_p = self.m_textctrl_load_b_path.GetValue()
+        c_p = self.m_textctrl_cam_param_path.GetValue()
+        col_p = self.m_textctrl_cb_col.GetValue()
+        row_p = self.m_textctrl_cb_row.GetValue()
+        cell_p = self.m_textctrl_cb_cellsize.GetValue()
+
+        if len(a_p) > 0 and len(b_p) > 0 and len(c_p) > 0 and len(col_p) > 0 and len(row_p) > 0 and len(cell_p) > 0:
+            self.m_btn_calib.Enable()
+        else:
+            self.m_btn_calib.Enable(False)
+        pass 
+
+    def _list_images_with_suffix(self, rootpath: str, suffix_list: list = ['png', 'jpg', 'jpeg', 'bmp']):
+        images = []
+        for f in os.listdir(rootpath):
+            # on macos, listdir will create a hidden file which name starts with '.', it can not be opened by opencv
+            if not f.startswith('.'):
+                suffix = f.rsplit('.', 1)[-1].lower()
+                if suffix in suffix_list:
+                    images.append(f)
+        return images
 
     def init_ui(self):
         # 手眼标定类型选择区域
@@ -157,6 +232,10 @@ class TabHandEye():
         # 手眼标定方法选择区域
         m_layout_he_calib_method = self._create_ui_he_calib_method()
         self.m_layout_he_main.Add(m_layout_he_calib_method, 2, wx.EXPAND, 0)
+
+        # 标定板参数设定区域
+        m_layout_he_cb_param = self._create_ui_he_checkerboard_param()
+        self.m_layout_he_main.Add(m_layout_he_cb_param, 1, wx.EXPAND, 0)
 
         # 手眼标定数据选择区域
         self.m_staticline_dataloader_upper = wx.StaticLine(
@@ -192,6 +271,9 @@ class TabHandEye():
             return None
         else:
             return db
+    
+    def on_cb_text_changed(self, evt):
+        self._update_btns()
 
     def on_select_file_path(self, evt):
         src_btn_id = evt.GetId()
@@ -209,31 +291,54 @@ class TabHandEye():
                 filepath = dlg.GetPath()
                 if src_btn_id == A_id:
                     self.A_path = filepath
-                    self.m_textCtrl_load_a_path.SetLabel(self.A_path)
+                    self.m_textctrl_load_a_path.SetLabel(self.A_path)
                 if src_btn_id == Cam_id:
                     self.cam_param_path = filepath
-                    self.m_textCtrl_cam_param_path.SetLabel(self.cam_param_path)
+                    self.m_textctrl_cam_param_path.SetLabel(
+                        self.cam_param_path)
                     # load cam params
                     self.cam_mtx, self.cam_dist = load_camera_param(filepath)
         else:
-            dlg = wx.DirDialog(self.tab, "选择标定板图像路径", style=wx.DD_DEFAULT_STYLE|wx.DD_NEW_DIR_BUTTON)
+            dlg = wx.DirDialog(self.tab, "选择标定板图像路径",
+                               style=wx.DD_DEFAULT_STYLE | wx.DD_NEW_DIR_BUTTON)
             if dlg.ShowModal() == wx.ID_OK:
                 self.B_path = dlg.GetPath()
-                self.m_textCtrl_load_b_path.SetLabel(self.B_path)
-
-        # check if A/B/Cam is ready, then enable the calib button
-        a_p = self.m_textCtrl_load_a_path.GetValue()
-        b_p = self.m_textCtrl_load_b_path.GetValue()
-        c_p = self.m_textCtrl_cam_param_path.GetValue()
-        if len(a_p) > 0 and len(b_p) > 0 and len(c_p) > 0:
-            self.m_btn_calib.Enable()
-        else:
-            self.m_btn_calib.Enable(False)
+                self.m_textctrl_load_b_path.SetLabel(self.B_path)
         
+        # 设置按钮状态
+        self._update_btns()
+
         dlg.Destroy()
 
     def on_click_calibrate(self, evt):
-        pass
+        a_p = self.m_textctrl_load_a_path.GetValue()
+        b_p = self.m_textctrl_load_b_path.GetValue()
+        c_p = self.m_textctrl_cam_param_path.GetValue()
+        col_p = int(self.m_textctrl_cb_col.GetValue())
+        row_p = int(self.m_textctrl_cb_row.GetValue())
+        cell_p = float(self.m_textctrl_cb_cellsize.GetValue())
+        # ax=xb
+        he = HandEye()
+        cb = CalibChessboard(row_p, col_p, cell_p)
+        ## 读取传感器rt(NDI/IMU etc.)
+        r_g2n, t_g2n = he.generate_gripper2ndi_with_file(a_p)
+        ## 加载相机参数
+        mtx, dist = load_camera_param(c_p)
+        ## 计算图像外参
+        images = self._list_images_with_suffix(b_p)
+        R_b2c = []
+        t_b2c = []
+        for fname in images:
+            gray = cv2.imread(os.path.join(b_p,fname), 0)
+            R,t = cb.calculate_img_rt(gray, mtx, dist)
+            R_b2c.append(R)
+            t_b2c.append(t)
+        r_c2g, t_c2g = cv2.calibrateHandEye(r_g2n, t_g2n, R_b2c, t_b2c, method=cv2.CALIB_HAND_EYE_HORAUD)
+        print(r_c2g)
+        print(t_c2g)
+
+        return r_c2g, t_c2g
+
 
     def on_save_calibration_results(self, evt):
         pass

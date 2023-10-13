@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+import pandas as pd
 import os
 import time
 import json
@@ -103,6 +104,61 @@ def combine_RT(R, Tx, Ty, Tz):
     M = np.vstack((M, [0, 0, 0, 1]))  # convert it to homogeneous matrix
     return M
 
+class HandEye():
+    def __init__(self):
+        pass 
+
+    def generate_gripper2ndi_with_file(self, filename:str, sensor_only=False, randomtest=False):
+        df = pd.read_csv(filename)
+        q0 = np.array(df.iloc[:, 0])
+        qx = np.array(df.iloc[:, 1])
+        qy = np.array(df.iloc[:, 2])
+        qz = np.array(df.iloc[:, 3])
+        if sensor_only is False:
+            tx = np.array(df.iloc[:, 4])
+            ty = np.array(df.iloc[:, 5])
+            tz = np.array(df.iloc[:, 6])
+        else:
+            if randomtest is False:
+                tx = np.ones_like(q0)
+                ty = np.ones_like(q0)
+                tz = np.ones_like(q0)
+            else:
+                tx = np.random.rand(*q0.shape)
+                ty = np.random.rand(*q0.shape)
+                tz = np.random.rand(*q0.shape)
+
+        q0 = q0.reshape(-1, 1)
+        qx = qx.reshape(-1, 1)
+        qy = qy.reshape(-1, 1)
+        qz = qz.reshape(-1, 1)
+        tx = tx.reshape(-1, 1)
+        ty = ty.reshape(-1, 1)
+        tz = tz.reshape(-1, 1)
+        Q = np.hstack((q0, qx, qy, qz))
+        if sensor_only is False:
+            Ts = np.array(df.iloc[:, 4:7])
+        else:
+            Ts = np.hstack((tx, ty, tz))
+        R = []
+        T = []
+        for rr, tt in zip(Q, Ts):
+            r = quat_2_rot(rr)
+            R.append(r)
+            T.append(tt)
+        return R, T
+
+    def generate_gripper2ndi_with_raw_files(self, filepath:str, sensor_only=False, randomtest=False):
+        pass
+
+    def calib_axxb(self, r_g2n_list, t_g2n_list, r_b2c_list, t_b2c_list, calib_method):
+        r_c2g, t_c2g = cv2.calibrateHandEye(
+            r_g2n_list, t_g2n_list, r_b2c_list, t_b2c_list, method=calib_method
+        )
+        return r_c2g, t_c2g
+
+    def calib_axyb(self):
+        pass 
 
 class CalibChessboard():
     def __init__(self, row, col, cellsize, use_mt:bool=True):
@@ -265,6 +321,7 @@ class CalibChessboard():
 
     # 查找角点
     def find_corners(self, grayimg: np.array):
+        ret, cor_o = cv2.findChessboardCorners(grayimg, (self.ROW_COR, self.COL_COR))
         ret, sub_corners = cv2.findChessboardCornersSB(
             grayimg, (self.ROW_COR, self.COL_COR), cv2.CALIB_CB_NORMALIZE_IMAGE | cv2.CALIB_CB_EXHAUSTIVE | cv2.CALIB_CB_ACCURACY | cv2.CALIB_CB_MARKER)
 
@@ -276,11 +333,19 @@ class CalibChessboard():
             return ret, None
 
     # 计算单张棋盘格的R,T
-    def calculate_img_rt(self, grayimg, cameraMatrix, distCoeffs):
+    def calculate_img_rt(self, grayimg, cameraMatrix, distCoeffs, vis=False):
         _, cors = self.find_corners(grayimg)
 
         ret, rvecs, tvecs, inliers = cv2.solvePnPRansac(
             self.objp, cors, cameraMatrix, distCoeffs)
+        if vis is True:
+            imgpts, _ = cv2.projectPoints(self.objp, rvecs, tvecs, cameraMatrix, distCoeffs)
+            ret = None
+            img = cv2.drawChessboardCorners(grayimg, (self.ROW_COR, self.COL_COR), cors, ret)
+            img = cv2.drawChessboardCorners(grayimg, (self.ROW_COR, self.COL_COR), imgpts, ret)
+            cv2.imshow('image', img)
+            cv2.waitKey(0)
+
         R, _ = cv2.Rodrigues(rvecs)
 
         return R, tvecs
@@ -310,3 +375,14 @@ class CalibChessboard():
             return (lfname, rfname, None, None, 'rejected')
         else:
             return (lfname, rfname, lcors, rcors, 'calibrated')
+
+
+if __name__ == "__main__":
+    cb = CalibChessboard(9, 12, 5.0)
+    mtx, dist = load_camera_param('stereoParam12x9.json')
+    gray_img = cv2.imread('C:/Users/lzj/Desktop/1013/eyeHand20231013/20231013094245L.png',0)
+    R, tvecs = cb.calculate_img_rt(gray_img, mtx, dist)
+    pass
+
+
+
