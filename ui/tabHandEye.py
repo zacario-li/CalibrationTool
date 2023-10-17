@@ -342,17 +342,24 @@ class TabHandEye():
 
     def _run_handeye_calibration_task(self, dlg):
         if self.m_radioBox_calib_type.GetSelection() == 0:
-            r_c2g, t_c2g = self.do_axxb_calib()
-            result_string = f'AXXB: \n Rotation:\n {np.array2string(r_c2g)} \n Translation:\n {np.array2string(t_c2g)}'
-            self.m_statictext_calib_err_result.SetLabel(result_string)
-            # return r_c2g, t_c2g
+            r_c2g, t_c2g, r_e, t_e = self.do_axxb_calib()
+            wx.CallAfter(self._handeye_calibration_task_done, dlg, (r_c2g, t_c2g, r_e, t_e))
         else:
             self.do_axyb_calib()
-            # return
-        wx.CallAfter(self._handeye_calibration_task_done, dlg, (0, 0, 0))
+            wx.CallAfter(self._handeye_calibration_task_done, dlg, (0,0))
 
     def _handeye_calibration_task_done(self, dlg, data):
+        if self.m_radioBox_calib_type.GetSelection() == 0:
+            # axxb
+            r_c2g, t_c2g, r_e, t_e = data
+            result_string = f'AXXB: \n Rotation:\n {np.array2string(r_c2g)} \n Translation:\n {np.array2string(t_c2g)} \n Rotation err: {r_e} degree, translation err: {t_e} mm'
+            self.m_statictext_calib_err_result.SetLabel(result_string)
+            # axyb
+        else:
+            self.m_statictext_calib_err_result.SetLabel('')
+
         dlg.Update(3, "done")
+
         pass
 
     def do_axxb_calib(self):
@@ -366,7 +373,8 @@ class TabHandEye():
         he = HandEye()
         cb = CalibChessboard(row_p, col_p, cell_p)
         # 读取传感器rt(NDI/IMU etc.)
-        r_g2n, t_g2n = he.generate_gripper2ndi_with_file(a_p)
+        r_g2n, t_g2n = he.generate_gripper2ndi_with_file(a_p, sensor_only=self.m_checkBox_rotation_only.IsChecked(
+        ), randomtest=self.m_checkBox_rotation_only.IsChecked())
         # 加载相机参数
         mtx, dist = load_camera_param(
             c_p, self.m_checkbox_cb_transflag.IsChecked())
@@ -384,9 +392,8 @@ class TabHandEye():
         method_str = self.m_radioBox_axxb_calib_method.GetString(he_method)
         method_id = self.he_calib_method_map[method_str]
 
-        r_c2g, t_c2g = cv2.calibrateHandEye(
-            r_g2n, t_g2n, R_b2c, t_b2c, method=method_id)
-        return r_c2g, t_c2g
+        r_c2g, t_c2g, r_e, t_e = he.calib_axxb(r_g2n, t_g2n, R_b2c, t_b2c, method_id)
+        return r_c2g, t_c2g, r_e, t_e
 
     def do_axyb_calib(self):
         pass

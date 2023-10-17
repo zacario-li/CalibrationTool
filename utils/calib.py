@@ -8,6 +8,16 @@ from multiprocessing import Pool
 from functools import partial
 from loguru import logger
 
+def computeangle(ax, xb):
+    deltaR = xb @ np.linalg.inv(ax)
+    tr_a = np.trace(deltaR)
+    theta = np.rad2deg(np.arccos((tr_a - 1)/2))
+    return theta
+
+def combine_RT(R, Tx, Ty, Tz):
+    M = np.hstack([R, [[Tx], [Ty], [Tz]]])
+    M = np.vstack((M, [0, 0, 0, 1]))  # convert it to homogeneous matrix
+    return M
 
 def timer_decorator(func):
     def wrapper(*args, **kwargs):
@@ -155,10 +165,71 @@ class HandEye():
         r_c2g, t_c2g = cv2.calibrateHandEye(
             r_g2n_list, t_g2n_list, r_b2c_list, t_b2c_list, method=calib_method
         )
-        return r_c2g, t_c2g
+        # val
+        r_e, t_e = self.valaxxb(r_g2n_list, t_g2n_list, r_b2c_list, t_b2c_list, r_c2g, t_c2g)
+        return r_c2g, t_c2g, r_e, t_e
 
     def calib_axyb(self):
         pass 
+
+    def valaxxb(self, r_g2n_list, t_g2n_list, r_b2c_list, t_b2c_list, r_c2g, t_c2g):
+        RT_c2g = combine_RT(r_c2g, float(t_c2g[0]), float(t_c2g[1]), float(t_c2g[2]))
+        RT_b2c_1 = combine_RT(r_b2c_list[0], float(t_b2c_list[0][0]), float(t_b2c_list[0][1]),float(t_b2c_list[0][2]))
+        RT_g2n_1 = combine_RT(r_g2n_list[0], float(t_g2n_list[0][0]), float(t_g2n_list[0][1]), float(t_g2n_list[0][2]))
+
+        AX = []
+        A = []
+        XB = []
+        B = []
+
+        for i in range(1, len(r_b2c_list)):
+            RT_b2c_2 = combine_RT(r_b2c_list[i], float(t_b2c_list[i][0]), float(t_b2c_list[i][1]),float(t_b2c_list[i][2]))
+            RT_g2n_2 = combine_RT(r_g2n_list[i], float(t_g2n_list[i][0]), float(t_g2n_list[i][1]), float(t_g2n_list[i][2]))
+
+            # let's check AX=XB
+            # A = RT_g2b_2^{-1} @ RT_g2b_1
+            # B = RT_b2c_2 @ RT_b2c_1^{-1}
+            a = np.linalg.inv(RT_g2n_2) @ RT_g2n_1
+            b = RT_b2c_2 @ np.linalg.inv(RT_b2c_1)
+            ax = a @ RT_c2g
+            xb = RT_c2g @ b
+
+            A.append(a)
+            B.append(b)
+            AX.append(ax)
+            XB.append(xb)
+
+        rotation_err = self.re(AX, XB)
+        translation_err = self.te(A, B, RT_c2g)
+        return rotation_err, translation_err
+
+    def te(self, a, b, x):
+        '''
+        err_te = 1/N\sum^N_{i=1}\| (R_A_i t_X) + t_A - (R_X t_B_i) - t_X \|
+        '''
+        tx = x[:3, 3].reshape(3, 1)
+        rx = x[:3, :3]
+        sum_te = []
+
+        for ai, bi in zip(a, b):
+            temp = ai[:3, :3]@tx + \
+                ai[:3, 3].reshape(3, 1) - rx@(bi[:3, 3].reshape(3, 1)) - tx
+            sum_te.append(temp)
+        sum_np = np.asarray(sum_te).reshape(-1, 3)
+        sum_temp_te = np.linalg.norm(sum_np, axis=1)
+        return np.mean(sum_temp_te)
+
+    def re(self, x1list: list, x2list: list):
+        '''
+        base on AX = XB
+        δR = {R_X}{R_B}({R_A}{R_X})^{-1}, note that, here we only calcuate the Rotation part.
+        '''
+        Theta_err = []
+        for x1, x2 in zip(x1list, x2list):
+            theta = computeangle(x1[:3, :3], x2[:3, :3])
+            Theta_err.append(theta)
+        return np.linalg.norm(np.asarray(Theta_err))/len(Theta_err)
+    
 
 class CalibChessboard():
     def __init__(self, row, col, cellsize, use_mt:bool=True):
