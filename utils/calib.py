@@ -18,12 +18,12 @@ def timer_decorator(func):
         return result
     return wrapper
 
-def load_camera_param(filename:str):
+def load_camera_param(filename:str, need_trans=False):
     # load parameters
     with open(filename) as f:
         jstr = json.load(f)
 
-    NEED_TRANS = False
+    NEED_TRANS = need_trans
     if 'Scheme' in jstr:
         if jstr['Scheme'] != 'opencv':
             NEED_TRANS = True
@@ -336,14 +336,14 @@ class CalibChessboard():
         _, cors = self.find_corners(grayimg)
 
         ret, rvecs, tvecs, inliers = cv2.solvePnPRansac(
-            self.objp, cors, cameraMatrix, distCoeffs)
+            self.objp, cors.reshape(-1,2), cameraMatrix, distCoeffs)
         if vis is True:
             imgpts, _ = cv2.projectPoints(self.objp, rvecs, tvecs, cameraMatrix, distCoeffs)
             ret = None
             img = cv2.drawChessboardCorners(grayimg, (self.ROW_COR, self.COL_COR), cors, ret)
             img = cv2.drawChessboardCorners(grayimg, (self.ROW_COR, self.COL_COR), imgpts, ret)
             cv2.imshow('image', img)
-            cv2.waitKey(0)
+            cv2.waitKey(1)
 
         R, _ = cv2.Rodrigues(rvecs)
 

@@ -1,5 +1,6 @@
 import wx
 import os
+import threading
 import cv2
 import numpy as np
 from utils.storage import LocalStorage
@@ -17,6 +18,17 @@ class TabHandEye():
         self.cam_param_path = None
         self.cam_mtx = None
         self.cam_dist = None
+        # data mapping
+        self.he_calib_method_map = {
+            # axxb
+            'TSAI': cv2.CALIB_HAND_EYE_TSAI,
+            'PARK': cv2.CALIB_HAND_EYE_PARK,
+            'HORAUD': cv2.CALIB_HAND_EYE_HORAUD,
+            'ANDREFF': cv2.CALIB_HAND_EYE_ANDREFF,
+            'DANIILIDIS': cv2.CALIB_HAND_EYE_DANIILIDIS,
+            # axyb
+            'SHAH': cv2.CALIB_ROBOT_WORLD_HAND_EYE_SHAH,
+            'LI': cv2.CALIB_ROBOT_WORLD_HAND_EYE_LI}
         # init ui
         self.m_layout_he_main = wx.BoxSizer(wx.VERTICAL)
         self.tab.SetSizer(self.m_layout_he_main)
@@ -104,6 +116,10 @@ class TabHandEye():
             self.m_textctrl_cam_param_path, 10, wx.ALL, 1)
         self.m_textctrl_cam_param_path.Enable(False)
 
+        self.m_checkbox_cb_transflag = wx.CheckBox(
+            self.tab, wx.ID_ANY, label="需要转置")
+        m_layout_he_dataloader_param.Add(
+            self.m_checkbox_cb_transflag, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 1)
         self.m_btn_load_cam_param = wx.Button(
             self.tab, wx.ID_ANY, u"Load Camera Params", wx.DefaultPosition, wx.DefaultSize, 0)
         m_layout_he_dataloader_param.Add(
@@ -176,7 +192,7 @@ class TabHandEye():
         m_layout_he_view.Add(self.m_bitmap_checkview, 0, wx.ALL, 5)
 
         self.m_statictext_calib_err_result = wx.StaticText(
-            self.tab, wx.ID_ANY, u"MyLabel", wx.DefaultPosition, wx.DefaultSize, 0)
+            self.tab, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0)
         self.m_statictext_calib_err_result.Wrap(-1)
 
         m_layout_he_view.Add(self.m_statictext_calib_err_result, 0, wx.ALL, 5)
@@ -194,7 +210,7 @@ class TabHandEye():
         self.tab.Bind(wx.EVT_BUTTON, self.on_click_calibrate, self.m_btn_calib)
         self.tab.Bind(
             wx.EVT_BUTTON, self.on_save_calibration_results, self.m_btn_save)
-        
+
         # text changed evt
         self.m_textctrl_cb_row.Bind(wx.EVT_TEXT, self.on_cb_text_changed)
         self.m_textctrl_cb_col.Bind(wx.EVT_TEXT, self.on_cb_text_changed)
@@ -213,7 +229,7 @@ class TabHandEye():
             self.m_btn_calib.Enable()
         else:
             self.m_btn_calib.Enable(False)
-        pass 
+        pass
 
     def _list_images_with_suffix(self, rootpath: str, suffix_list: list = ['png', 'jpg', 'jpeg', 'bmp']):
         images = []
@@ -272,7 +288,7 @@ class TabHandEye():
             return None
         else:
             return db
-    
+
     def on_cb_text_changed(self, evt):
         self._update_btns()
 
@@ -305,13 +321,41 @@ class TabHandEye():
             if dlg.ShowModal() == wx.ID_OK:
                 self.B_path = dlg.GetPath()
                 self.m_textctrl_load_b_path.SetLabel(self.B_path)
-        
+
         # 设置按钮状态
         self._update_btns()
 
         dlg.Destroy()
 
     def on_click_calibrate(self, evt):
+        dlg = wx.ProgressDialog(
+            "手眼标定",
+            "正在标定...",
+            maximum=3,
+            parent=self.tab,
+            style=wx.PD_APP_MODAL | wx.PD_AUTO_HIDE
+        )
+        dlg.Update(1, "开始计算")
+        thread = threading.Thread(
+            target=self._run_handeye_calibration_task, args=(dlg,))
+        thread.start()
+
+    def _run_handeye_calibration_task(self, dlg):
+        if self.m_radioBox_calib_type.GetSelection() == 0:
+            r_c2g, t_c2g = self.do_axxb_calib()
+            result_string = f'AXXB: \n Rotation:\n {np.array2string(r_c2g)} \n Translation:\n {np.array2string(t_c2g)}'
+            self.m_statictext_calib_err_result.SetLabel(result_string)
+            # return r_c2g, t_c2g
+        else:
+            self.do_axyb_calib()
+            # return
+        wx.CallAfter(self._handeye_calibration_task_done, dlg, (0, 0, 0))
+
+    def _handeye_calibration_task_done(self, dlg, data):
+        dlg.Update(3, "done")
+        pass
+
+    def do_axxb_calib(self):
         a_p = self.m_textctrl_load_a_path.GetValue()
         b_p = self.m_textctrl_load_b_path.GetValue()
         c_p = self.m_textctrl_cam_param_path.GetValue()
@@ -321,24 +365,31 @@ class TabHandEye():
         # ax=xb
         he = HandEye()
         cb = CalibChessboard(row_p, col_p, cell_p)
-        ## 读取传感器rt(NDI/IMU etc.)
+        # 读取传感器rt(NDI/IMU etc.)
         r_g2n, t_g2n = he.generate_gripper2ndi_with_file(a_p)
-        ## 加载相机参数
-        mtx, dist = load_camera_param(c_p)
-        ## 计算图像外参
+        # 加载相机参数
+        mtx, dist = load_camera_param(
+            c_p, self.m_checkbox_cb_transflag.IsChecked())
+        # 计算图像外参
         images = self._list_images_with_suffix(b_p)
         R_b2c = []
         t_b2c = []
         for fname in images:
-            gray = cv2.imread(os.path.join(b_p,fname), 0)
-            R,t = cb.calculate_img_rt(gray, mtx, dist)
+            gray = cv2.imread(os.path.join(b_p, fname), 0)
+            R, t = cb.calculate_img_rt(gray, mtx, dist)
             R_b2c.append(R)
             t_b2c.append(t)
-        r_c2g, t_c2g = cv2.calibrateHandEye(r_g2n, t_g2n, R_b2c, t_b2c, method=cv2.CALIB_HAND_EYE_HORAUD)
-        self.m_statictext_calib_err_result.SetLabel(np.array2string(r_c2g)+'\n'+np.array2string(t_c2g))
+        # 获取当前手眼标定方法
+        he_method = self.m_radioBox_axxb_calib_method.GetSelection()
+        method_str = self.m_radioBox_axxb_calib_method.GetString(he_method)
+        method_id = self.he_calib_method_map[method_str]
 
+        r_c2g, t_c2g = cv2.calibrateHandEye(
+            r_g2n, t_g2n, R_b2c, t_b2c, method=method_id)
         return r_c2g, t_c2g
 
+    def do_axyb_calib(self):
+        pass
 
     def on_save_calibration_results(self, evt):
         pass
