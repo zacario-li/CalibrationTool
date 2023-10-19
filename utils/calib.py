@@ -169,7 +169,7 @@ class HandEye():
         r_e, t_e = self.valaxxb(r_g2n_list, t_g2n_list, r_b2c_list, t_b2c_list, r_c2g, t_c2g)
         return r_c2g, t_c2g, r_e, t_e
 
-    def calib_axyb(self):
+    def calib_axzb(self):
         pass 
 
     def valaxxb(self, r_g2n_list, t_g2n_list, r_b2c_list, t_b2c_list, r_c2g, t_c2g):

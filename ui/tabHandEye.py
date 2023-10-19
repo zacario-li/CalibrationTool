@@ -26,7 +26,7 @@ class TabHandEye():
             'HORAUD': cv2.CALIB_HAND_EYE_HORAUD,
             'ANDREFF': cv2.CALIB_HAND_EYE_ANDREFF,
             'DANIILIDIS': cv2.CALIB_HAND_EYE_DANIILIDIS,
-            # axyb
+            # axzb
             'SHAH': cv2.CALIB_ROBOT_WORLD_HAND_EYE_SHAH,
             'LI': cv2.CALIB_ROBOT_WORLD_HAND_EYE_LI}
         # init ui
@@ -39,7 +39,14 @@ class TabHandEye():
     def _create_ui_he_type(self):
         m_layout_he_type = wx.BoxSizer(wx.HORIZONTAL)
 
-        m_radioBoxChoices_calib_type = [u"AX=XB", u"AX=YB"]
+        m_radioBoxChoices_calib_he_type = [u"Eye in Hand", u"Eye to Hand"]
+        self.m_radioBox_calib_he_type = wx.RadioBox(self.tab, wx.ID_ANY, u"Eye Position Choose", wx.DefaultPosition,
+                                                    wx.DefaultSize, m_radioBoxChoices_calib_he_type, 1, wx.RA_SPECIFY_ROWS)
+        self.m_radioBox_calib_he_type.SetSelection(0)
+        m_layout_he_type.Add(self.m_radioBox_calib_he_type, 0,
+                             wx.ALIGN_CENTER_VERTICAL | wx.ALL, 5)
+
+        m_radioBoxChoices_calib_type = [u"AX=XB", u"AX=ZB"]
         self.m_radioBox_calib_type = wx.RadioBox(self.tab, wx.ID_ANY, u"Calib Type", wx.DefaultPosition,
                                                  wx.DefaultSize, m_radioBoxChoices_calib_type, 1, wx.RA_SPECIFY_ROWS)
         self.m_radioBox_calib_type.SetSelection(0)
@@ -63,14 +70,14 @@ class TabHandEye():
         m_layout_he_calib_method.Add(
             self.m_radioBox_axxb_calib_method, 0, wx.ALL, 5)
 
-        m_radioBoxChoices_axyb_calib_method = [u"SHAH", u"LI"]
-        self.m_radioBox_axyb_calib_method = wx.RadioBox(self.tab, wx.ID_ANY, u"AX=YB Calib Method",
-                                                        wx.DefaultPosition, wx.DefaultSize, m_radioBoxChoices_axyb_calib_method, 1, wx.RA_SPECIFY_ROWS)
-        self.m_radioBox_axyb_calib_method.SetSelection(0)
-        self.m_radioBox_axyb_calib_method.Enable(False)
+        m_radioBoxChoices_axzb_calib_method = [u"SHAH", u"LI"]
+        self.m_radioBox_axzb_calib_method = wx.RadioBox(self.tab, wx.ID_ANY, u"AX=ZB Calib Method",
+                                                        wx.DefaultPosition, wx.DefaultSize, m_radioBoxChoices_axzb_calib_method, 1, wx.RA_SPECIFY_ROWS)
+        self.m_radioBox_axzb_calib_method.SetSelection(0)
+        self.m_radioBox_axzb_calib_method.Enable(False)
 
         m_layout_he_calib_method.Add(
-            self.m_radioBox_axyb_calib_method, 0, wx.ALL, 5)
+            self.m_radioBox_axzb_calib_method, 0, wx.ALL, 5)
         return m_layout_he_calib_method
 
     def _create_ui_he_dataloader(self):
@@ -345,7 +352,7 @@ class TabHandEye():
             r_c2g, t_c2g, r_e, t_e = self.do_axxb_calib()
             wx.CallAfter(self._handeye_calibration_task_done, dlg, (r_c2g, t_c2g, r_e, t_e))
         else:
-            self.do_axyb_calib()
+            self.do_axzb_calib()
             wx.CallAfter(self._handeye_calibration_task_done, dlg, (0,0))
 
     def _handeye_calibration_task_done(self, dlg, data):
@@ -354,7 +361,7 @@ class TabHandEye():
             r_c2g, t_c2g, r_e, t_e = data
             result_string = f'AXXB: \n Rotation:\n {np.array2string(r_c2g)} \n Translation:\n {np.array2string(t_c2g)} \n Rotation err: {r_e} degree, translation err: {t_e} mm'
             self.m_statictext_calib_err_result.SetLabel(result_string)
-            # axyb
+            # axzb
         else:
             self.m_statictext_calib_err_result.SetLabel('')
 
@@ -395,7 +402,7 @@ class TabHandEye():
         r_c2g, t_c2g, r_e, t_e = he.calib_axxb(r_g2n, t_g2n, R_b2c, t_b2c, method_id)
         return r_c2g, t_c2g, r_e, t_e
 
-    def do_axyb_calib(self):
+    def do_axzb_calib(self):
         pass
 
     def on_save_calibration_results(self, evt):
@@ -405,7 +412,7 @@ class TabHandEye():
         idx = self.m_radioBox_calib_type.GetSelection()
         if 0 == idx:
             self.m_radioBox_axxb_calib_method.Enable()
-            self.m_radioBox_axyb_calib_method.Enable(False)
+            self.m_radioBox_axzb_calib_method.Enable(False)
         else:
             self.m_radioBox_axxb_calib_method.Enable(False)
-            self.m_radioBox_axyb_calib_method.Enable()
+            self.m_radioBox_axzb_calib_method.Enable()
