@@ -1,10 +1,11 @@
 import wx
 import os
 import threading
+import json
 import cv2
 import numpy as np
 from utils.storage import LocalStorage
-from utils.calib import CalibChessboard, HandEye, load_camera_param
+from utils.calib import CalibChessboard, HandEye, load_camera_param, combine_RT
 from loguru import logger
 
 
@@ -18,6 +19,11 @@ class TabHandEye():
         self.cam_param_path = None
         self.cam_mtx = None
         self.cam_dist = None
+        # result
+        self.r_error = None
+        self.t_error = None
+        self.X = None
+        self.Z = None
         # data mapping
         self.he_calib_method_map = {
             # axxb
@@ -236,7 +242,7 @@ class TabHandEye():
             self.m_btn_calib.Enable()
         else:
             self.m_btn_calib.Enable(False)
-        pass
+        self.m_btn_save.Enable(False)
 
     def _list_images_with_suffix(self, rootpath: str, suffix_list: list = ['png', 'jpg', 'jpeg', 'bmp']):
         images = []
@@ -247,6 +253,20 @@ class TabHandEye():
                 if suffix in suffix_list:
                     images.append(f)
         return images
+
+    def _write_2_file(self, filename):
+        paramJsonStr = {
+            'version': '0.1',
+            'SN': '',
+            'Scheme': 'opencv',
+            'AXXB': {
+                'Matrix': self.X.tolist(),
+                'rotation_err': self.r_error,
+                'translation_err': self.t_error
+            }
+        }
+        with open(f'{filename}', 'w') as f:
+            json.dump(paramJsonStr, f, indent=4)
 
     def init_ui(self):
         # 手眼标定类型选择区域
@@ -350,15 +370,20 @@ class TabHandEye():
     def _run_handeye_calibration_task(self, dlg):
         if self.m_radioBox_calib_type.GetSelection() == 0:
             r_c2g, t_c2g, r_e, t_e = self.do_axxb_calib()
-            wx.CallAfter(self._handeye_calibration_task_done, dlg, (r_c2g, t_c2g, r_e, t_e))
+            wx.CallAfter(self._handeye_calibration_task_done,
+                         dlg, (r_c2g, t_c2g, r_e, t_e))
         else:
             self.do_axzb_calib()
-            wx.CallAfter(self._handeye_calibration_task_done, dlg, (0,0))
+            wx.CallAfter(self._handeye_calibration_task_done, dlg, (0, 0))
 
     def _handeye_calibration_task_done(self, dlg, data):
         if self.m_radioBox_calib_type.GetSelection() == 0:
             # axxb
             r_c2g, t_c2g, r_e, t_e = data
+            self.r_error = float(r_e)
+            self.t_error = float(t_e)
+            self.X = combine_RT(r_c2g, float(
+                t_c2g[0]), float(t_c2g[1]), float(t_c2g[2]))
             result_string = f'AXXB: \n Rotation:\n {np.array2string(r_c2g)} \n Translation:\n {np.array2string(t_c2g)} \n Rotation err: {r_e} degree, translation err: {t_e} mm'
             self.m_statictext_calib_err_result.SetLabel(result_string)
             # axzb
@@ -366,8 +391,7 @@ class TabHandEye():
             self.m_statictext_calib_err_result.SetLabel('')
 
         dlg.Update(3, "done")
-
-        pass
+        self.m_btn_save.Enable()
 
     def do_axxb_calib(self):
         a_p = self.m_textctrl_load_a_path.GetValue()
@@ -399,14 +423,20 @@ class TabHandEye():
         method_str = self.m_radioBox_axxb_calib_method.GetString(he_method)
         method_id = self.he_calib_method_map[method_str]
 
-        r_c2g, t_c2g, r_e, t_e = he.calib_axxb(r_g2n, t_g2n, R_b2c, t_b2c, method_id)
+        r_c2g, t_c2g, r_e, t_e = he.calib_axxb(
+            r_g2n, t_g2n, R_b2c, t_b2c, method_id)
         return r_c2g, t_c2g, r_e, t_e
 
     def do_axzb_calib(self):
         pass
 
     def on_save_calibration_results(self, evt):
-        pass
+        dlg = wx.FileDialog(self.tab, u"保存标定结果", wildcard='*.json',
+                            defaultFile='handeye_parameters', style=wx.FD_SAVE)
+        if dlg.ShowModal() == wx.ID_OK:
+            path = dlg.GetPath()
+            self._write_2_file(path)
+        dlg.Destroy()
 
     def on_calib_type_select(self, evt):
         idx = self.m_radioBox_calib_type.GetSelection()
