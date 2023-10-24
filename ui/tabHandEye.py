@@ -436,6 +436,9 @@ class TabHandEye():
         if dlg.ShowModal() == wx.ID_OK:
             path = dlg.GetPath()
             self._write_2_file(path)
+            # 打开当前保存的路径，方便用户查看
+            if os.path.exists(path):
+                os.startfile(os.path.dirname(path))
         dlg.Destroy()
 
     def on_calib_type_select(self, evt):

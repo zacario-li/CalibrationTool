@@ -405,6 +405,9 @@ class TabSingleCam():
             path = dlg.GetPath()
             # save code here
             self._write_2_file(path, self.mtx, self.dist)
+            # 打开当前保存的路径，方便用户查看
+            if os.path.exists(path):
+                os.startfile(os.path.dirname(path))
         dlg.Destroy()
         pass
 
