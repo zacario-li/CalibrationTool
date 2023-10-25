@@ -3,6 +3,7 @@ import os
 import threading
 import json
 import cv2
+from multiprocessing import Pool
 import numpy as np
 from utils.ophelper import *
 from utils.storage import LocalStorage
@@ -457,9 +458,12 @@ class TabHandEye():
         # TODO
         R_b2c = []
         t_b2c = []
-        for fname in images:
-            gray = cv2.imread(os.path.join(b_p, fname), 0)
-            R, t = cb.calculate_img_rt(gray, mtx, dist)
+        # test map
+        results = cb.calculate_img_rt_parallel(b_p, images, mtx, dist)
+
+        for idx in range(len(images)):
+            R = results[idx][0]
+            t = results[idx][1]
             R_b2c.append(R)
             t_b2c.append(t)
         # 获取当前手眼标定方法

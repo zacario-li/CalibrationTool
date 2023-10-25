@@ -513,6 +513,19 @@ class CalibChessboard():
 
         return R, tvecs
 
+    def calculate_img_rt_mono(self, args):
+        root, filename, mtx, dist = args
+        img = cv2.imread(os.path.join(root,filename), 0)
+        R, tvecs = self.calculate_img_rt(img, mtx, dist)
+        return (R, tvecs)
+
+    # 多线程计算棋盘格R,T
+    @timer_decorator
+    def calculate_img_rt_parallel(self, root, imagelist, mtx, dist):
+        with Pool(min(len(imagelist), os.cpu_count())) as p:
+            results = p.map(self.calculate_img_rt_mono, [(root, filename, mtx, dist) for filename in imagelist])
+        return results
+
     # 画角点
     def draw_corners(self, img: np.array, corners):
         cv2.drawChessboardCorners(
