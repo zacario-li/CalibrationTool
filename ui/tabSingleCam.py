@@ -6,6 +6,7 @@ import wx
 import json
 from loguru import logger
 
+from utils.ophelper import *
 from utils.storage import LocalStorage
 from utils.calib import CalibChessboard, quat_2_rot, rot_2_quat
 from ui.imagepanel import ImagePanel
@@ -205,6 +206,10 @@ class TabSingleCam():
                       self.on_tree_item_right_click, self.m_treeCtl_images)
         self.tab.Bind(wx.EVT_BUTTON, self.on_save_calibration_results,
                       self.m_save_calibration_btn)
+        # text changed evt
+        self.m_textCtrl_row.Bind(wx.EVT_TEXT, self.on_text_changed)
+        self.m_textCtrl_col.Bind(wx.EVT_TEXT, self.on_text_changed)
+        self.m_textCtrl_cellsize.Bind(wx.EVT_TEXT, self.on_text_changed)
 
     def list_images_with_suffix(self, rootpath: str, suffix_list: list = ['png', 'jpg', 'jpeg', 'bmp']):
         images = []
@@ -257,6 +262,22 @@ class TabSingleCam():
             tree.SelectItem(newItem)
             tree.EnsureVisible(newItem)
             tree.EnableVisibleFocus(True)
+
+    # 更新按钮状态
+    def _update_btns(self):
+        col_p = self.m_textCtrl_col.GetValue()
+        row_p = self.m_textCtrl_row.GetValue()
+        cell_p = self.m_textCtrl_cellsize.GetValue()
+
+        if len(col_p) > 0 and len(row_p) > 0:
+            self.m_calibrate_btn.Enable()
+        else:
+            self.m_calibrate_btn.Enable(False)
+            self.m_save_calibration_btn.Enable(False)
+
+    # 输入框变动关联更新btn
+    def on_text_changed(self, evt):
+        self._update_btns()
 
     # 当左键点击图像列表中的item时，触发此处理
     def on_tree_item_select(self, evt):
@@ -406,8 +427,7 @@ class TabSingleCam():
             # save code here
             self._write_2_file(path, self.mtx, self.dist)
             # 打开当前保存的路径，方便用户查看
-            if os.path.exists(path):
-                os.startfile(os.path.dirname(path))
+            open_folder(path)
         dlg.Destroy()
         pass
 

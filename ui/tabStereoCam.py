@@ -6,6 +6,7 @@ import threading
 from utils.storage import LocalStorage
 from ui.imagepanel import ImagePanel
 from utils.calib import CalibChessboard, quat_2_rot, rot_2_quat
+from utils.ophelper import *
 from loguru import logger
 
 IMAGE_VIEW_W = 480
@@ -349,8 +350,7 @@ class TabStereoCam():
             # save code here
             self._write_2_file(path)
             # 打开当前保存的路径，方便用户查看
-            if os.path.exists(path):
-                os.startfile(os.path.dirname(path))
+            open_folder(path)
         dlg.Destroy()
 
     def _write_2_file(self, filename):

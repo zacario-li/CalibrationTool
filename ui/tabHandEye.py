@@ -4,6 +4,7 @@ import threading
 import json
 import cv2
 import numpy as np
+from utils.ophelper import *
 from utils.storage import LocalStorage
 from utils.calib import CalibChessboard, HandEye, load_camera_param, combine_RT
 from loguru import logger
@@ -99,8 +100,11 @@ class TabHandEye():
             self.m_textctrl_load_a_path, 10, wx.ALL, 1)
         self.m_textctrl_load_a_path.Enable(False)
 
+        self.m_checkbox_cb_eulerflag = wx.CheckBox(self.tab, wx.ID_ANY, label="txt格式euler角")
+        m_layout_he_dataloader_A.Add(self.m_checkbox_cb_eulerflag,0,wx.ALIGN_CENTER_VERTICAL|wx.ALL, 1)
+
         self.m_btn_loadA = wx.Button(
-            self.tab, wx.ID_ANY, u"Load A(quaternions+trans csv file)", wx.DefaultPosition, wx.DefaultSize, 0)
+            self.tab, wx.ID_ANY, u"Load A(quat csv file/euler txt file)", wx.DefaultPosition, wx.DefaultSize, 0)
         m_layout_he_dataloader_A.Add(self.m_btn_loadA, 0, wx.ALL, 1)
 
         m_layout_he_dataloader_path_main.Add(
@@ -303,9 +307,25 @@ class TabHandEye():
         # db init
         # create a single camera calib table
         '''
-        rootpath text ,filename text, isreject bool, qw float, qx float, qy float, qz float, tx float, ty float, tz float
+        use quaternion and position to represent rotation and translation
+        |id integer|filename text|isreject bool|point_id integer|px float|py float|qw float |qx float  |qy float  |qz float  |tx float|ty float| tz float|
+        |----------|-------------|-------------|----------------|--------|--------|---------|----------|----------|----------|--------|--------|---------|
+        |    0     |    img1.png |  False      |    0           |22.745  |65.478  |0.1085443|-0.2130855|-0.9618053|-0.1332042| -44.071| 272.898|-1388.602|
         '''
-        TABLE_SQL_STR = 'filename text, isreject bool, qw float, qx float, qy float, qz float, tx float, ty float, tz float'
+        TABLE_SQL_STR = '''id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                            rootpath text,
+                            filename text, 
+                            isreject bool, 
+                            point_id integer, 
+                            px float, 
+                            py float, 
+                            qw float, 
+                            qx float, 
+                            qy float, 
+                            qz float, 
+                            tx float, 
+                            ty float, 
+                            tz float'''
         self.DB_FILENAME = ':memory:'
         self.DB_TABLENAME = 'handeye'
         db = LocalStorage(self.DB_FILENAME)
@@ -325,7 +345,7 @@ class TabHandEye():
         Cam_id = self.m_btn_load_cam_param.GetId()
         wildcard_str = wx.FileSelectorDefaultWildcardStr
         if src_btn_id == A_id:
-            wildcard_str = "*.csv"
+            wildcard_str = "*.txt" if self.m_checkbox_cb_eulerflag.IsChecked() else "*.csv"
         if src_btn_id == Cam_id:
             wildcard_str = "*.json"
         dlg = None
@@ -437,8 +457,7 @@ class TabHandEye():
             path = dlg.GetPath()
             self._write_2_file(path)
             # 打开当前保存的路径，方便用户查看
-            if os.path.exists(path):
-                os.startfile(os.path.dirname(path))
+            open_folder(path)
         dlg.Destroy()
 
     def on_calib_type_select(self, evt):

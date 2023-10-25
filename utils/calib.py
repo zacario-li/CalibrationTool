@@ -4,9 +4,11 @@ import pandas as pd
 import os
 import time
 import json
+import math
 from multiprocessing import Pool
 from functools import partial
 from loguru import logger
+
 
 def computeangle(ax, xb):
     deltaR = xb @ np.linalg.inv(ax)
@@ -14,10 +16,12 @@ def computeangle(ax, xb):
     theta = np.rad2deg(np.arccos((tr_a - 1)/2))
     return theta
 
+
 def combine_RT(R, Tx, Ty, Tz):
     M = np.hstack([R, [[Tx], [Ty], [Tz]]])
     M = np.vstack((M, [0, 0, 0, 1]))  # convert it to homogeneous matrix
     return M
+
 
 def timer_decorator(func):
     def wrapper(*args, **kwargs):
@@ -28,7 +32,8 @@ def timer_decorator(func):
         return result
     return wrapper
 
-def load_camera_param(filename:str, need_trans=False):
+
+def load_camera_param(filename: str, need_trans=False):
     # load parameters
     with open(filename) as f:
         jstr = json.load(f)
@@ -37,7 +42,7 @@ def load_camera_param(filename:str, need_trans=False):
     if 'Scheme' in jstr:
         if jstr['Scheme'] != 'opencv':
             NEED_TRANS = True
-            
+
     ELEMENT_NAME = 'CameraParameters'
     if 'CameraParameters1' in jstr:
         ELEMENT_NAME = 'CameraParameters1'
@@ -109,16 +114,37 @@ def rot_2_quat(R: np.array):
     return q
 
 
+def euler_2_quat(roll, pitch, yaw):
+    q = np.zeros(4)
+    
+    cy = math.cos(yaw * 0.5)
+    sy = math.sin(yaw * 0.5)
+    cp = math.cos(pitch * 0.5)
+    sp = math.sin(pitch * 0.5)
+    cr = math.cos(roll * 0.5)
+    sr = math.sin(roll * 0.5)
+
+    w = cr * cp * cy + sr * sp * sy
+    x = sr * cp * cy - cr * sp * sy
+    y = cr * sp * cy + sr * cp * sy
+    z = cr * cp * sy - sr * sp * cy
+
+    q[0] = w, q[1] = x, q[2] = y, q[3] = z
+
+    return q
+
+
 def combine_RT(R, Tx, Ty, Tz):
     M = np.hstack([R, [[Tx], [Ty], [Tz]]])
     M = np.vstack((M, [0, 0, 0, 1]))  # convert it to homogeneous matrix
     return M
 
+
 class HandEye():
     def __init__(self):
-        pass 
+        pass
 
-    def generate_gripper2ndi_with_file(self, filename:str, sensor_only=False, randomtest=False):
+    def generate_gripper2ndi_with_file(self, filename: str, sensor_only=False, randomtest=False):
         df = pd.read_csv(filename)
         q0 = np.array(df.iloc[:, 0])
         qx = np.array(df.iloc[:, 1])
@@ -158,7 +184,7 @@ class HandEye():
             T.append(tt)
         return R, T
 
-    def generate_gripper2ndi_with_raw_files(self, filepath:str, sensor_only=False, randomtest=False):
+    def generate_gripper2ndi_with_raw_files(self, filepath: str, sensor_only=False, randomtest=False):
         pass
 
     def calib_axxb(self, r_g2n_list, t_g2n_list, r_b2c_list, t_b2c_list, calib_method):
@@ -166,16 +192,20 @@ class HandEye():
             r_g2n_list, t_g2n_list, r_b2c_list, t_b2c_list, method=calib_method
         )
         # val
-        r_e, t_e = self.valaxxb(r_g2n_list, t_g2n_list, r_b2c_list, t_b2c_list, r_c2g, t_c2g)
+        r_e, t_e = self.valaxxb(r_g2n_list, t_g2n_list,
+                                r_b2c_list, t_b2c_list, r_c2g, t_c2g)
         return r_c2g, t_c2g, r_e, t_e
 
     def calib_axzb(self):
-        pass 
+        pass
 
     def valaxxb(self, r_g2n_list, t_g2n_list, r_b2c_list, t_b2c_list, r_c2g, t_c2g):
-        RT_c2g = combine_RT(r_c2g, float(t_c2g[0]), float(t_c2g[1]), float(t_c2g[2]))
-        RT_b2c_1 = combine_RT(r_b2c_list[0], float(t_b2c_list[0][0]), float(t_b2c_list[0][1]),float(t_b2c_list[0][2]))
-        RT_g2n_1 = combine_RT(r_g2n_list[0], float(t_g2n_list[0][0]), float(t_g2n_list[0][1]), float(t_g2n_list[0][2]))
+        RT_c2g = combine_RT(r_c2g, float(
+            t_c2g[0]), float(t_c2g[1]), float(t_c2g[2]))
+        RT_b2c_1 = combine_RT(r_b2c_list[0], float(t_b2c_list[0][0]), float(
+            t_b2c_list[0][1]), float(t_b2c_list[0][2]))
+        RT_g2n_1 = combine_RT(r_g2n_list[0], float(t_g2n_list[0][0]), float(
+            t_g2n_list[0][1]), float(t_g2n_list[0][2]))
 
         AX = []
         A = []
@@ -183,8 +213,10 @@ class HandEye():
         B = []
 
         for i in range(1, len(r_b2c_list)):
-            RT_b2c_2 = combine_RT(r_b2c_list[i], float(t_b2c_list[i][0]), float(t_b2c_list[i][1]),float(t_b2c_list[i][2]))
-            RT_g2n_2 = combine_RT(r_g2n_list[i], float(t_g2n_list[i][0]), float(t_g2n_list[i][1]), float(t_g2n_list[i][2]))
+            RT_b2c_2 = combine_RT(r_b2c_list[i], float(t_b2c_list[i][0]), float(
+                t_b2c_list[i][1]), float(t_b2c_list[i][2]))
+            RT_g2n_2 = combine_RT(r_g2n_list[i], float(t_g2n_list[i][0]), float(
+                t_g2n_list[i][1]), float(t_g2n_list[i][2]))
 
             # let's check AX=XB
             # A = RT_g2b_2^{-1} @ RT_g2b_1
@@ -229,10 +261,10 @@ class HandEye():
             theta = computeangle(x1[:3, :3], x2[:3, :3])
             Theta_err.append(theta)
         return np.linalg.norm(np.asarray(Theta_err))/len(Theta_err)
-    
+
 
 class CalibChessboard():
-    def __init__(self, row, col, cellsize, use_mt:bool=True):
+    def __init__(self, row, col, cellsize, use_mt: bool = True):
         # use multi-threading
         self.USE_MT = use_mt
         # checkerboard pattern
@@ -407,12 +439,15 @@ class CalibChessboard():
         _, cors = self.find_corners(grayimg)
 
         ret, rvecs, tvecs, inliers = cv2.solvePnPRansac(
-            self.objp, cors.reshape(-1,2), cameraMatrix, distCoeffs)
+            self.objp, cors.reshape(-1, 2), cameraMatrix, distCoeffs)
         if vis is True:
-            imgpts, _ = cv2.projectPoints(self.objp, rvecs, tvecs, cameraMatrix, distCoeffs)
+            imgpts, _ = cv2.projectPoints(
+                self.objp, rvecs, tvecs, cameraMatrix, distCoeffs)
             ret = None
-            img = cv2.drawChessboardCorners(grayimg, (self.ROW_COR, self.COL_COR), cors, ret)
-            img = cv2.drawChessboardCorners(grayimg, (self.ROW_COR, self.COL_COR), imgpts, ret)
+            img = cv2.drawChessboardCorners(
+                grayimg, (self.ROW_COR, self.COL_COR), cors, ret)
+            img = cv2.drawChessboardCorners(
+                grayimg, (self.ROW_COR, self.COL_COR), imgpts, ret)
             cv2.imshow('image', img)
             cv2.waitKey(1)
 
@@ -450,9 +485,7 @@ class CalibChessboard():
 if __name__ == "__main__":
     cb = CalibChessboard(9, 12, 5.0)
     mtx, dist = load_camera_param('stereoParam12x9.json')
-    gray_img = cv2.imread('C:/Users/lzj/Desktop/1013/eyeHand20231013/20231013094245L.png',0)
+    gray_img = cv2.imread(
+        'C:/Users/lzj/Desktop/1013/eyeHand20231013/20231013094245L.png', 0)
     R, tvecs = cb.calculate_img_rt(gray_img, mtx, dist)
     pass
-
-
-
