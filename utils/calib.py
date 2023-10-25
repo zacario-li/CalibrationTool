@@ -8,6 +8,7 @@ import math
 from multiprocessing import Pool
 from functools import partial
 from loguru import logger
+from scipy.spatial.transform import Rotation
 
 
 def computeangle(ax, xb):
@@ -116,7 +117,7 @@ def rot_2_quat(R: np.array):
 
 def euler_2_quat(roll, pitch, yaw):
     q = np.zeros(4)
-    
+
     cy = math.cos(yaw * 0.5)
     sy = math.sin(yaw * 0.5)
     cp = math.cos(pitch * 0.5)
@@ -143,6 +144,63 @@ def combine_RT(R, Tx, Ty, Tz):
 class HandEye():
     def __init__(self):
         pass
+
+    def generate_gripper2base_with_rvec_txt(self, filename: str, sensor_only=False, randomtest=False):
+        data = np.loadtxt(filename)
+        x = data[:, 0]
+        y = data[:, 1]
+        z = data[:, 2]
+        rxyz = data[:, 3:]
+        
+        rot = Rotation.from_rotvec(rxyz)
+        quat_array = rot.as_quat()
+        quat_array[:, [0,1,2,3]] = quat_array[:,[3,0,1,2]]
+
+        # reshape
+        x = x.reshape(-1, 1)
+        y = y.reshape(-1, 1)
+        z = z.reshape(-1, 1)
+
+        #Q = np.hstack((q0, qx, qy, qz))
+        Q = quat_array
+        Ts = np.hstack((x, y, z))*1000.0
+
+        R = []
+        T = []
+        for rr, tt in zip(Q, Ts):
+            r = quat_2_rot(rr)
+            R.append(r)
+            T.append(tt)
+        return R, T
+
+    def generate_gripper2base_with_euler_txt(self, filename: str, sensor_only=False, randomtest=False):
+        data = np.loadtxt(filename)
+        x = data[:, 0]
+        y = data[:, 1]
+        z = data[:, 2]
+        roll = data[:, 3]
+        pitch = data[:, 4]
+        yaw = data[:, 5]
+
+        qx = np.sin(roll/2) * np.cos(pitch/2) * np.cos(yaw/2) - \
+            np.cos(roll/2) * np.sin(pitch/2) * np.sin(yaw/2)
+        qy = np.cos(roll/2) * np.sin(pitch/2) * np.cos(yaw/2) + \
+            np.sin(roll/2) * np.cos(pitch/2) * np.sin(yaw/2)
+        qz = np.cos(roll/2) * np.cos(pitch/2) * np.sin(yaw/2) - \
+            np.sin(roll/2) * np.sin(pitch/2) * np.cos(yaw/2)
+        q0 = np.cos(roll/2) * np.cos(pitch/2) * np.cos(yaw/2) + \
+            np.sin(roll/2) * np.sin(pitch/2) * np.sin(yaw/2)
+
+        Q = np.hstack((q0, qx, qy, qz))
+        Ts = np.hstack((x, y, z))
+
+        R = []
+        T = []
+        for rr, tt in zip(Q, Ts):
+            r = quat_2_rot(rr)
+            R.append(r)
+            T.append(tt)
+        return R, T
 
     def generate_gripper2ndi_with_file(self, filename: str, sensor_only=False, randomtest=False):
         df = pd.read_csv(filename)

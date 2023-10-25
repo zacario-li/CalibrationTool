@@ -100,11 +100,11 @@ class TabHandEye():
             self.m_textctrl_load_a_path, 10, wx.ALL, 1)
         self.m_textctrl_load_a_path.Enable(False)
 
-        self.m_checkbox_cb_eulerflag = wx.CheckBox(self.tab, wx.ID_ANY, label="txt格式euler角")
-        m_layout_he_dataloader_A.Add(self.m_checkbox_cb_eulerflag,0,wx.ALIGN_CENTER_VERTICAL|wx.ALL, 1)
+        self.m_checkbox_cb_rvecflag = wx.CheckBox(self.tab, wx.ID_ANY, label="旋转向量")
+        m_layout_he_dataloader_A.Add(self.m_checkbox_cb_rvecflag,0,wx.ALIGN_CENTER_VERTICAL|wx.ALL, 1)
 
         self.m_btn_loadA = wx.Button(
-            self.tab, wx.ID_ANY, u"Load A(quat csv file/euler txt file)", wx.DefaultPosition, wx.DefaultSize, 0)
+            self.tab, wx.ID_ANY, u"Load A(quat csv file/rvec txt file)", wx.DefaultPosition, wx.DefaultSize, 0)
         m_layout_he_dataloader_A.Add(self.m_btn_loadA, 0, wx.ALL, 1)
 
         m_layout_he_dataloader_path_main.Add(
@@ -345,7 +345,7 @@ class TabHandEye():
         Cam_id = self.m_btn_load_cam_param.GetId()
         wildcard_str = wx.FileSelectorDefaultWildcardStr
         if src_btn_id == A_id:
-            wildcard_str = "*.txt" if self.m_checkbox_cb_eulerflag.IsChecked() else "*.csv"
+            wildcard_str = "*.txt" if self.m_checkbox_cb_rvecflag.IsChecked() else "*.csv"
         if src_btn_id == Cam_id:
             wildcard_str = "*.json"
         dlg = None
@@ -424,13 +424,18 @@ class TabHandEye():
         he = HandEye()
         cb = CalibChessboard(row_p, col_p, cell_p)
         # 读取传感器rt(NDI/IMU etc.)
-        r_g2n, t_g2n = he.generate_gripper2ndi_with_file(a_p, sensor_only=self.m_checkBox_rotation_only.IsChecked(
-        ), randomtest=self.m_checkBox_rotation_only.IsChecked())
+        if self.m_checkbox_cb_rvecflag.IsChecked():
+            r_g2n, t_g2n = he.generate_gripper2base_with_rvec_txt(a_p)
+        else:
+            r_g2n, t_g2n = he.generate_gripper2ndi_with_file(a_p, sensor_only=self.m_checkBox_rotation_only.IsChecked(
+            ), randomtest=self.m_checkBox_rotation_only.IsChecked())
         # 加载相机参数
         mtx, dist = load_camera_param(
             c_p, self.m_checkbox_cb_transflag.IsChecked())
         # 计算图像外参
         images = self._list_images_with_suffix(b_p)
+        # check if A's size match B's size
+        # TODO
         R_b2c = []
         t_b2c = []
         for fname in images:
