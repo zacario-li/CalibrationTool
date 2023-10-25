@@ -10,10 +10,13 @@ from utils.ophelper import *
 from utils.storage import LocalStorage
 from utils.calib import CalibChessboard, quat_2_rot, rot_2_quat
 from ui.imagepanel import ImagePanel
+from ui.components import *
 
 IMAGE_VIEW_W = 800
 IMAGE_VIEW_H = 600
 
+Dlg_Evt_Custom = wx.NewEventType()
+EVT_DLG_CUSTOM = wx.PyEventBinder(Dlg_Evt_Custom)
 
 class TabSingleCam():
     def __init__(self, parent, tab):
@@ -46,12 +49,12 @@ class TabSingleCam():
         '''
         |文件路径|选择按钮|
         '''
-        self.m_textCtrl1 = wx.TextCtrl(
+        self.m_textCtrl_file_path = wx.TextCtrl(
             self.tab, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0)
-        self.m_textCtrl1.Enable(False)
+        self.m_textCtrl_file_path.Enable(False)
 
         self.path_h_sizer.Add(
-            self.m_textCtrl1, 5, wx.ALIGN_CENTER_HORIZONTAL | wx.ALIGN_CENTER_VERTICAL | wx.ALL, 5)
+            self.m_textCtrl_file_path, 5, wx.ALIGN_CENTER_HORIZONTAL | wx.ALIGN_CENTER_VERTICAL | wx.ALL, 5)
 
         self.m_select_file_path = wx.Button(
             self.tab, wx.ID_ANY, u"选择文件夹", wx.DefaultPosition, wx.DefaultSize, 0)
@@ -210,6 +213,8 @@ class TabSingleCam():
         self.m_textCtrl_row.Bind(wx.EVT_TEXT, self.on_text_changed)
         self.m_textCtrl_col.Bind(wx.EVT_TEXT, self.on_text_changed)
         self.m_textCtrl_cellsize.Bind(wx.EVT_TEXT, self.on_text_changed)
+        # dlg details updates
+        self.tab.Bind(EVT_DLG_CUSTOM, self.on_dlg_details_changed)
 
     def list_images_with_suffix(self, rootpath: str, suffix_list: list = ['png', 'jpg', 'jpeg', 'bmp']):
         images = []
@@ -265,15 +270,20 @@ class TabSingleCam():
 
     # 更新按钮状态
     def _update_btns(self):
+        path_p = self.m_textCtrl_file_path.GetValue()
         col_p = self.m_textCtrl_col.GetValue()
         row_p = self.m_textCtrl_row.GetValue()
         cell_p = self.m_textCtrl_cellsize.GetValue()
 
-        if len(col_p) > 0 and len(row_p) > 0:
+        if len(col_p) > 0 and len(row_p) > 0 and len(path_p):
             self.m_calibrate_btn.Enable()
         else:
             self.m_calibrate_btn.Enable(False)
             self.m_save_calibration_btn.Enable(False)
+
+    # 更新图片处理进度
+    def on_dlg_details_changed(self, evt):
+        data = evt.get_data()
 
     # 输入框变动关联更新btn
     def on_text_changed(self, evt):
@@ -346,7 +356,7 @@ class TabSingleCam():
             None, "选择校准图像路径", style=wx.DD_DEFAULT_STYLE | wx.DD_NEW_DIR_BUTTON)
         if dir_dialog.ShowModal() == wx.ID_OK:
             self.current_root_dir = dir_dialog.GetPath()
-            self.m_textCtrl1.SetValue(self.current_root_dir)
+            self.m_textCtrl_file_path.SetValue(self.current_root_dir)
             self.m_calibrate_btn.Enable(False)
             self.m_save_calibration_btn.Enable(False)
         else:
@@ -417,6 +427,11 @@ class TabSingleCam():
             thread = threading.Thread(target=self._run_camera_calibration_task, args=(
                 row, col, cellsize, results, filelist, dlg))
             thread.start()
+            # test custom evt
+            event = CustomEvent(Dlg_Evt_Custom)
+            event.set_data('start a process thread')
+            #self.tab.GetEventHandler().ProcessEvent(event)
+            wx.PostEvent(self.tab, event)
 
     # 保存校准结果
     def on_save_calibration_results(self, evt):
