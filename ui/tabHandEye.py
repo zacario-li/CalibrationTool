@@ -45,6 +45,10 @@ class TabHandEye():
 
     def _create_ui_he_type(self):
         m_layout_he_type = wx.BoxSizer(wx.HORIZONTAL)
+        # icon
+        icon_bitmap = wx.Image('elements/1.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap()
+        layout_icon = wx.StaticBitmap(self.tab, bitmap=icon_bitmap, size=(32,32))
+        m_layout_he_type.Add(layout_icon,0,wx.ALIGN_CENTER|wx.ALL, 5)
 
         m_radioBoxChoices_calib_he_type = [u"Eye in Hand", u"Eye to Hand"]
         self.m_radioBox_calib_he_type = wx.RadioBox(self.tab, wx.ID_ANY, u"Eye Position Choose", wx.DefaultPosition,
@@ -68,6 +72,11 @@ class TabHandEye():
 
     def _create_ui_he_calib_method(self):
         m_layout_he_calib_method = wx.BoxSizer(wx.HORIZONTAL)
+
+        # icon
+        icon_bitmap = wx.Image('elements/2.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap()
+        layout_icon = wx.StaticBitmap(self.tab, bitmap=icon_bitmap, size=(32,32))
+        m_layout_he_calib_method.Add(layout_icon,0,wx.ALIGN_CENTER|wx.ALL, 5)
 
         m_radioBoxChoices_axxb_calib_method = [u"TSAI", u"PARK",
                                                u"HORAUD", u"ANDREFF", u"DANIILIDIS"]
@@ -145,6 +154,11 @@ class TabHandEye():
         m_layout_he_dataloader_path_main.Add(
             m_layout_he_dataloader_param, 10, wx.EXPAND, 0)
 
+        # icon
+        icon_bitmap = wx.Image('elements/4.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap()
+        layout_icon = wx.StaticBitmap(self.tab, bitmap=icon_bitmap, size=(32,32))
+        m_layout_he_dataloader.Add(layout_icon,0,wx.ALIGN_CENTER|wx.ALL, 5)
+
         m_layout_he_dataloader.Add(
             m_layout_he_dataloader_path_main, 10, wx.EXPAND, 0)
 
@@ -161,6 +175,11 @@ class TabHandEye():
 
     def _create_ui_he_checkerboard_param(self):
         m_layout_he_cb_param = wx.BoxSizer(wx.HORIZONTAL)
+
+        # icon
+        icon_bitmap = wx.Image('elements/3.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap()
+        layout_icon = wx.StaticBitmap(self.tab, bitmap=icon_bitmap, size=(32,32))
+        m_layout_he_cb_param.Add(layout_icon,0,wx.ALIGN_CENTER|wx.ALL, 5)
 
         self.m_statictext_cb_row = wx.StaticText(
             self.tab, wx.ID_ANY, u"标定板行数", wx.DefaultPosition, wx.DefaultSize, 0
