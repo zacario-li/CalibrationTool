@@ -5,11 +5,14 @@ import json
 import cv2
 from multiprocessing import Pool
 import numpy as np
+from ui.imagepanel import ImagePanel
 from utils.ophelper import *
 from utils.storage import LocalStorage
 from utils.calib import CalibChessboard, HandEye, load_camera_param, combine_RT
 from loguru import logger
 
+HE_IMAGE_VIEW_W = 800
+HE_IMAGE_VIEW_H = 600
 
 class TabHandEye():
     def __init__(self, parent, tab):
@@ -222,17 +225,20 @@ class TabHandEye():
         return m_layout_he_cb_param
 
     def _create_ui_he_view(self):
-        m_layout_he_view = wx.BoxSizer(wx.VERTICAL)
+        m_layout_he_view = wx.BoxSizer(wx.HORIZONTAL)
 
-        self.m_bitmap_checkview = wx.StaticBitmap(
-            self.tab, wx.ID_ANY, wx.NullBitmap, wx.DefaultPosition, wx.DefaultSize, 0)
-        m_layout_he_view.Add(self.m_bitmap_checkview, 0, wx.ALL, 5)
+        # images list
+        self.m_treectrl = self.new_treectrl()
+        m_layout_he_view.Add(self.m_treectrl, 1, wx.EXPAND, 5)
+
+        self.m_panel_checkview = ImagePanel(self.tab, wx.Size(HE_IMAGE_VIEW_W, HE_IMAGE_VIEW_H))
+        m_layout_he_view.Add(self.m_panel_checkview, 5, wx.ALIGN_CENTER_VERTICAL| wx.ALL, 5)
 
         self.m_statictext_calib_err_result = wx.StaticText(
             self.tab, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0)
         self.m_statictext_calib_err_result.Wrap(-1)
 
-        m_layout_he_view.Add(self.m_statictext_calib_err_result, 0, wx.ALL, 5)
+        m_layout_he_view.Add(self.m_statictext_calib_err_result, 2, wx.ALIGN_CENTER_VERTICAL|wx.ALL, 5)
         return m_layout_he_view
 
     def _register_all_callbacks(self):
@@ -247,6 +253,9 @@ class TabHandEye():
         self.tab.Bind(wx.EVT_BUTTON, self.on_click_calibrate, self.m_btn_calib)
         self.tab.Bind(
             wx.EVT_BUTTON, self.on_save_calibration_results, self.m_btn_save)
+
+        # tree 
+        self.tab.Bind(wx.EVT_TREE_SEL_CHANGING, self.on_tree_item_select, self.m_treectrl)
 
         # text changed evt
         self.m_textctrl_cb_row.Bind(wx.EVT_TEXT, self.on_cb_text_changed)
@@ -291,6 +300,43 @@ class TabHandEye():
         }
         with open(f'{filename}', 'w') as f:
             json.dump(paramJsonStr, f, indent=4)
+
+    def _list_images_with_suffix(self, rootpath: str, suffix_list: list = ['png', 'jpg', 'jpeg', 'bmp']):
+        images = []
+        for f in os.listdir(rootpath):
+            # on macos, listdir will create a hidden file which name starts with '.', it can not be opened by opencv
+            if not f.startswith('.'):
+                suffix = f.rsplit('.', 1)[-1].lower()
+                if suffix in suffix_list:
+                    images.append(f)
+        return images
+
+    def new_treectrl(self):
+        self.iconlist = wx.ImageList(16, 16)
+        self.icon_ok = self.iconlist.Add(wx.ArtProvider.GetBitmap(
+            wx.ART_INFORMATION, wx.ART_OTHER, (16, 16)))
+        self.icon_q = self.iconlist.Add(wx.ArtProvider.GetBitmap(
+            wx.ART_CROSS_MARK, wx.ART_OTHER, (16, 16)))
+        tree = wx.TreeCtrl(self.tab)
+        tree.AssignImageList(self.iconlist)
+        return tree
+
+    # 更新目录条目信息 TODO
+    def update_treectrl(self, all: bool = False):
+        tree = self.m_treectrl
+        tree.DeleteAllItems()
+
+        dirroot = tree.AddRoot('文件名', image=0)
+        filelist = self._list_images_with_suffix(self.B_path)
+        if len(filelist) > 0:
+            for fname in filelist:
+                newItem = tree.AppendItem(
+                    dirroot, f'{fname}', data=f'{fname}')
+                tree.SetItemImage(newItem, self.icon_ok)
+            tree.Expand(dirroot)
+            tree.SelectItem(newItem)
+            tree.EnsureVisible(newItem)
+            tree.EnableVisibleFocus(True)
 
     def init_ui(self):
         # 手眼标定类型选择区域
@@ -356,6 +402,23 @@ class TabHandEye():
         else:
             return db
 
+    def on_tree_item_select(self, evt):
+        id = evt.GetItem()
+        rootid = self.m_treectrl.GetRootItem()
+        if rootid != id:
+            fname = self.m_treectrl.GetItemData(id)
+            fullname = os.path.join(self.B_path, fname)
+            img = cv2.imread(fullname)
+            img_w = img.shape[1]
+            img_h = img.shape[0]
+            SCALE_RATIO = img_w/HE_IMAGE_VIEW_W
+            img_data = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            img_data = cv2.resize(img_data, (int(img_w/SCALE_RATIO),int(img_h/SCALE_RATIO)))
+            self.m_panel_checkview.set_bitmap(wx.Bitmap.FromBuffer(img_data.shape[1], img_data.shape[0], img_data))
+        else:
+            self.m_panel_checkview.set_bitmap(wx.Bitmap(HE_IMAGE_VIEW_W, HE_IMAGE_VIEW_H))
+        self.m_panel_checkview.Refresh()
+
     def on_cb_text_changed(self, evt):
         self._update_btns()
 
@@ -364,6 +427,7 @@ class TabHandEye():
         A_id = self.m_btn_loadA.GetId()
         Cam_id = self.m_btn_load_cam_param.GetId()
         wildcard_str = wx.FileSelectorDefaultWildcardStr
+
         if src_btn_id == A_id:
             wildcard_str = "*.txt" if self.m_checkbox_cb_rvecflag.IsChecked() else "*.csv"
         if src_btn_id == Cam_id:
@@ -388,6 +452,7 @@ class TabHandEye():
             if dlg.ShowModal() == wx.ID_OK:
                 self.B_path = dlg.GetPath()
                 self.m_textctrl_load_b_path.SetLabel(self.B_path)
+                self.update_treectrl()
 
         # 设置按钮状态
         self._update_btns()
@@ -424,7 +489,7 @@ class TabHandEye():
             self.t_error = float(t_e)
             self.X = combine_RT(r_c2g, float(
                 t_c2g[0]), float(t_c2g[1]), float(t_c2g[2]))
-            result_string = f'AXXB: \n Rotation:\n {np.array2string(r_c2g)} \n Translation:\n {np.array2string(t_c2g)} \n Rotation err: {r_e} degree, translation err: {t_e} mm'
+            result_string = f'AXXB Calibration Result:\n\n Rotation:\n {np.array2string(r_c2g)} \n\n Translation:\n {np.array2string(t_c2g)} \n\n Rotation err: {r_e} (degree) \n Translation err: {t_e} (mm)'
             self.m_statictext_calib_err_result.SetLabel(result_string)
             # axzb
         else:
