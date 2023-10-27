@@ -311,7 +311,6 @@ class TabHandEye():
         tree.AssignImageList(self.iconlist)
         return tree
 
-    # 更新目录条目信息 TODO
     def update_treectrl(self, all: bool = False):
         tree = self.m_treectrl
         tree.DeleteAllItems()
@@ -412,7 +411,7 @@ class TabHandEye():
             SCALE_RATIO = img_w/HE_IMAGE_VIEW_W
             img_data = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             img_data = cv2.resize(img_data, (int(img_w/SCALE_RATIO),int(img_h/SCALE_RATIO)))
-            self.m_panel_checkview.set_bitmap(wx.Bitmap.FromBuffer(img_data.shape[1], img_data.shape[0], img_data))
+            self.m_panel_checkview.set_cvmat(img_data)
         else:
             self.m_panel_checkview.set_bitmap(wx.Bitmap(HE_IMAGE_VIEW_W, HE_IMAGE_VIEW_H))
         self.m_panel_checkview.Refresh()

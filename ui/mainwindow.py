@@ -9,6 +9,7 @@ class MainWindow(wx.Frame):
         wx.Frame.__init__(self, parent, title=title, size=(1280, 900))
         self.SetMinSize(self.GetSize())
         self.SetMaxSize(self.GetSize())
+        self.Centre(wx.BOTH)
         # icon
         icon = wx.Icon('elements/calib_icon.png', wx.BITMAP_TYPE_PNG)
         self.SetIcon(icon)

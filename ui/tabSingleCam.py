@@ -2,6 +2,7 @@ import os
 import sys
 import threading
 import cv2
+import numpy as np
 import wx
 import json
 from loguru import logger
@@ -21,6 +22,7 @@ class TabSingleCam():
     def __init__(self, parent, tab):
         self.tab = tab
         # global var
+        self.monocheck = None
         self.image_shape = None
         self.current_root_dir = None
         self.db = self.init_db()
@@ -117,6 +119,13 @@ class TabSingleCam():
         self.m_save_calibration_btn.Enable(False)
         self.checkerpattern_h_sizer.Add(
             self.m_save_calibration_btn, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, pattern_border)
+        
+        self.m_show_pts_dist_btn = wx.Button(
+            self.tab, wx.ID_ANY, u"显示棋盘格分布", wx.DefaultPosition, wx.DefaultSize, 0)
+        self.m_show_pts_dist_btn.Enable(False)
+        self.checkerpattern_h_sizer.Add(
+            self.m_show_pts_dist_btn, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, pattern_border
+        )
 
         self.m_staticText_warning = wx.StaticText(
             self.tab, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0)
@@ -155,12 +164,12 @@ class TabSingleCam():
 
         # vtk panel
         # camera poses
-        if sys.platform != "darwin":
-            from ui.vtkpanel import VTKPanel
-            self.camera_pose_view = VTKPanel(self.tab, wx.Size(200, 200))
-            self.main_h_sizer.Add(self.camera_pose_view, 1,
-                                  wx.ALIGN_CENTER_VERTICAL, 5)
-        # TODO
+        # if sys.platform != "darwin":
+        #     from ui.vtkpanel import VTKPanel
+        #     self.camera_pose_view = VTKPanel(self.tab, wx.Size(200, 200))
+        #     self.main_h_sizer.Add(self.camera_pose_view, 1,
+        #                           wx.ALIGN_CENTER_VERTICAL, 5)
+        # # TODO
 
         # register callback
         self._register_all_callbacks()
@@ -208,6 +217,7 @@ class TabSingleCam():
                       self.on_tree_item_right_click, self.m_treeCtl_images)
         self.tab.Bind(wx.EVT_BUTTON, self.on_save_calibration_results,
                       self.m_save_calibration_btn)
+        self.tab.Bind(wx.EVT_BUTTON, self.on_show_disp_details, self.m_show_pts_dist_btn)
         # text changed evt
         self.m_textCtrl_row.Bind(wx.EVT_TEXT, self.on_text_changed)
         self.m_textCtrl_col.Bind(wx.EVT_TEXT, self.on_text_changed)
@@ -215,7 +225,7 @@ class TabSingleCam():
         # dlg details updates
         self.tab.Bind(EVT_DLG_CUSTOM, self.on_dlg_details_changed)
 
-    def list_images_with_suffix(self, rootpath: str, suffix_list: list = ['png', 'jpg', 'jpeg', 'bmp']):
+    def _list_images_with_suffix(self, rootpath: str, suffix_list: list = ['png', 'jpg', 'jpeg', 'bmp']):
         images = []
         for f in os.listdir(rootpath):
             # on macos, listdir will create a hidden file which name starts with '.', it can not be opened by opencv
@@ -319,8 +329,7 @@ class TabSingleCam():
             image_data = cv2.cvtColor(image_data, cv2.COLOR_BGR2RGB)
             image_data = cv2.resize(
                 image_data, (int(img_w/SCALE_RATIO), int(img_h/SCALE_RATIO)))
-            self.m_main_image_view.set_bitmap(wx.Bitmap.FromBuffer(
-                image_data.shape[1], image_data.shape[0], image_data))
+            self.m_main_image_view.set_cvmat(image_data)
         else:
             self.m_main_image_view.set_bitmap(
                 wx.Bitmap(IMAGE_VIEW_W, IMAGE_VIEW_H))
@@ -358,11 +367,12 @@ class TabSingleCam():
             self.m_textCtrl_file_path.SetValue(self.current_root_dir)
             self.m_calibrate_btn.Enable(False)
             self.m_save_calibration_btn.Enable(False)
+            self.m_show_pts_dist_btn.Enable(False)
         else:
             return
         dir_dialog.Destroy()
 
-        images = self.list_images_with_suffix(self.current_root_dir)
+        images = self._list_images_with_suffix(self.current_root_dir)
         # check if there is any images
         if len(images) > 0:
             self.m_calibrate_btn.Enable(True)
@@ -443,7 +453,13 @@ class TabSingleCam():
             # 打开当前保存的路径，方便用户查看
             open_folder(path)
         dlg.Destroy()
-        pass
+    
+    # 显示拍摄分布
+    def on_show_disp_details(self, evt):
+        dpanel = DetailsImagePanel(self.tab.GetParent().GetParent(), "拍摄角点分布")
+        dpanel.commit_cvdata(self.monocheck)
+        dpanel.Show()
+        self.tab.GetParent().GetParent().Disable()
 
     def _write_2_file(self, filename, mtx, dist):
         paramJsonStr = {
@@ -468,9 +484,15 @@ class TabSingleCam():
         calib = CalibChessboard(row, col, cellsize)
         CALIB = calib.mono_calib_parallel if calib.USE_MT is True else calib.mono_calib
         # 执行校准，并得到结果
-        ret, mtx, dist, rvecs, tvecs, rpjes, rej_list, cal_list, shape = CALIB(
+        ret, mtx, dist, rvecs, tvecs, rpjes, rej_list, cal_list, shape, pts = CALIB(
             results[0][0], filelist)
         self.image_shape = shape
+        # draw all pts for double check
+        img_for_dist_check = np.zeros((shape[1], shape[0], 3), dtype=np.uint8)
+        pts = np.asarray(pts).reshape(-1,2)
+        calib.draw_corners(img_for_dist_check, pts, False)
+        self.monocheck = img_for_dist_check
+
         wx.CallAfter(self._camera_calibration_task_done, dlg, ret,
                      mtx, dist, rvecs, tvecs, rpjes, rej_list, cal_list)
 
@@ -491,6 +513,7 @@ class TabSingleCam():
         self.update_treectrl()
         # enalbe save
         self.m_save_calibration_btn.Enable(True)
+        self.m_show_pts_dist_btn.Enable(True)
 
     # 把无法找到角点的图片列表写入数据库
     def _set_rejected_flags(self, filelist):

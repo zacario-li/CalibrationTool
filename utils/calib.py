@@ -361,7 +361,7 @@ class CalibChessboard():
             objpoints, imgpoints, gray.shape[::-1], None, None)
 
         # TODO evaluate the results
-        return ret, mtx, dist, rvecs, tvecs, perverrs, rejected_files, calibrated_files, gray.shape[::-1]
+        return ret, mtx, dist, rvecs, tvecs, perverrs, rejected_files, calibrated_files, gray.shape[::-1], imgpoints
 
     # parallen mono calib
     @timer_decorator
@@ -390,7 +390,7 @@ class CalibChessboard():
             objpoints, imgpoints, image_for_shape.shape[::-1], None, None)
 
         # TODO evaluate the results
-        return ret, mtx, dist, rvecs, tvecs, perverrs, rejected_files, calibrated_files, image_for_shape.shape[::-1]
+        return ret, mtx, dist, rvecs, tvecs, perverrs, rejected_files, calibrated_files, image_for_shape.shape[::-1], imgpoints
 
     # 双目校准
     @timer_decorator
@@ -527,9 +527,9 @@ class CalibChessboard():
         return results
 
     # 画角点
-    def draw_corners(self, img: np.array, corners):
+    def draw_corners(self, img: np.array, corners, pattern_found=True):
         cv2.drawChessboardCorners(
-            img, (self.ROW_COR, self.COL_COR), corners, True)
+            img, (self.ROW_COR, self.COL_COR), corners, pattern_found)
 
     # parallel processing the image
     def _process_image_corners(self, rootpath: str, fname: str):

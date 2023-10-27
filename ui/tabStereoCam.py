@@ -259,7 +259,7 @@ class TabStereoCam():
         if rootid != id:
             fnames = self.m_treectrl.GetItemData(id)
             fullname = self.m_treectrl.GetItemText(id)
-            status = fullname.splitk(':')[1]
+            status = fullname.split(':')[1]
             limage_data = cv2.imread(os.path.join(
                 self.current_leftroot, fnames[0]))
             rimage_data = cv2.imread(os.path.join(
@@ -285,10 +285,8 @@ class TabStereoCam():
                 limage_data, (int(img_w/SCALE_RATIO), int(img_h/SCALE_RATIO)))
             rimage_data = cv2.resize(
                 rimage_data, (int(img_w/SCALE_RATIO), int(img_h/SCALE_RATIO)))
-            self.m_bitmap_left.set_bitmap(wx.Bitmap.FromBuffer(
-                limage_data.shape[1], limage_data.shape[0], limage_data))
-            self.m_bitmap_right.set_bitmap(wx.Bitmap.FromBuffer(
-                rimage_data.shape[1], rimage_data.shape[0], rimage_data))
+            self.m_bitmap_left.set_cvmat(limage_data)
+            self.m_bitmap_right.set_cvmat(rimage_data)
             self.m_statictext_left_name.SetLabel(fnames[0])
             self.m_statictext_right_name.SetLabel(fnames[1])
         else:
