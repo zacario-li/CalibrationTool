@@ -5,7 +5,7 @@ import json
 import cv2
 from multiprocessing import Pool
 import numpy as np
-from ui.imagepanel import ImagePanel
+from ui.components import ImagePanel
 from utils.ophelper import *
 from utils.storage import LocalStorage
 from utils.calib import CalibChessboard, HandEye, load_camera_param, combine_RT
@@ -301,16 +301,6 @@ class TabHandEye():
         with open(f'{filename}', 'w') as f:
             json.dump(paramJsonStr, f, indent=4)
 
-    def _list_images_with_suffix(self, rootpath: str, suffix_list: list = ['png', 'jpg', 'jpeg', 'bmp']):
-        images = []
-        for f in os.listdir(rootpath):
-            # on macos, listdir will create a hidden file which name starts with '.', it can not be opened by opencv
-            if not f.startswith('.'):
-                suffix = f.rsplit('.', 1)[-1].lower()
-                if suffix in suffix_list:
-                    images.append(f)
-        return images
-
     def new_treectrl(self):
         self.iconlist = wx.ImageList(16, 16)
         self.icon_ok = self.iconlist.Add(wx.ArtProvider.GetBitmap(
@@ -409,6 +399,14 @@ class TabHandEye():
             fname = self.m_treectrl.GetItemData(id)
             fullname = os.path.join(self.B_path, fname)
             img = cv2.imread(fullname)
+            # draw corners
+            if self.m_btn_calib.IsEnabled():
+                row = int(self.m_textctrl_cb_row.GetValue())
+                col = int(self.m_textctrl_cb_col.GetValue())
+                cellsize = float(self.m_textctrl_cb_cellsize.GetValue())
+                calib_instance = CalibChessboard(row, col, cellsize)
+                _, cors = calib_instance.find_corners(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY))
+                calib_instance.draw_corners(img, cors)
             img_w = img.shape[1]
             img_h = img.shape[0]
             SCALE_RATIO = img_w/HE_IMAGE_VIEW_W

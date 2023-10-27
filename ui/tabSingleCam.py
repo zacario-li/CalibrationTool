@@ -9,7 +9,6 @@ from loguru import logger
 from utils.ophelper import *
 from utils.storage import LocalStorage
 from utils.calib import CalibChessboard, quat_2_rot, rot_2_quat
-from ui.imagepanel import ImagePanel
 from ui.components import *
 
 IMAGE_VIEW_W = 800

@@ -4,7 +4,7 @@ import cv2
 import json
 import threading
 from utils.storage import LocalStorage
-from ui.imagepanel import ImagePanel
+from ui.components import ImagePanel
 from utils.calib import CalibChessboard, quat_2_rot, rot_2_quat
 from utils.ophelper import *
 from loguru import logger
@@ -259,7 +259,7 @@ class TabStereoCam():
         if rootid != id:
             fnames = self.m_treectrl.GetItemData(id)
             fullname = self.m_treectrl.GetItemText(id)
-            status = fullname.split(':')[1]
+            status = fullname.splitk(':')[1]
             limage_data = cv2.imread(os.path.join(
                 self.current_leftroot, fnames[0]))
             rimage_data = cv2.imread(os.path.join(
