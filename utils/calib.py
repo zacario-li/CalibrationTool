@@ -151,17 +151,17 @@ class HandEye():
         y = data[:, 1]
         z = data[:, 2]
         rxyz = data[:, 3:]
-        
+
         rot = Rotation.from_rotvec(rxyz)
         quat_array = rot.as_quat()
-        quat_array[:, [0,1,2,3]] = quat_array[:,[3,0,1,2]]
+        quat_array[:, [0, 1, 2, 3]] = quat_array[:, [3, 0, 1, 2]]
 
         # reshape
         x = x.reshape(-1, 1)
         y = y.reshape(-1, 1)
         z = z.reshape(-1, 1)
 
-        #Q = np.hstack((q0, qx, qy, qz))
+        # Q = np.hstack((q0, qx, qy, qz))
         Q = quat_array
         Ts = np.hstack((x, y, z))*1000.0
 
@@ -427,7 +427,7 @@ class CalibChessboard():
         ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr = cv2.stereoCalibrateExtended(
             objpoints, imgpoints_left, imgpoints_right, mtx_l, dist_l, mtx_r, dist_r, leftimg.shape[::-1], R, T, criteria=self.criteria)
 
-        return ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rejected_files, calibrated_files, leftimg.shape[::-1]
+        return ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rejected_files, calibrated_files, leftimg.shape[::-1], imgpoints_left, imgpoints_right
 
     @timer_decorator
     def stereo_calib_parallel(self, leftrootpath: str, rightrootpath: str, leftfilelist: list, rightfilelist: list):
@@ -465,7 +465,7 @@ class CalibChessboard():
         ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr = cv2.stereoCalibrateExtended(
             objpoints, imgpoints_left, imgpoints_right, mtx_l, dist_l, mtx_r, dist_r, image_for_shape.shape[::-1], R, T, criteria=self.criteria)
 
-        return ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rejected_files, calibrated_files, image_for_shape.shape[::-1]
+        return ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rejected_files, calibrated_files, image_for_shape.shape[::-1], imgpoints_left, imgpoints_right
 
     # 重投影误差
 
@@ -515,7 +515,7 @@ class CalibChessboard():
 
     def calculate_img_rt_mono(self, args):
         root, filename, mtx, dist = args
-        img = cv2.imread(os.path.join(root,filename), 0)
+        img = cv2.imread(os.path.join(root, filename), 0)
         R, tvecs = self.calculate_img_rt(img, mtx, dist)
         return (R, tvecs)
 
@@ -523,7 +523,8 @@ class CalibChessboard():
     @timer_decorator
     def calculate_img_rt_parallel(self, root, imagelist, mtx, dist):
         with Pool(min(len(imagelist), os.cpu_count())) as p:
-            results = p.map(self.calculate_img_rt_mono, [(root, filename, mtx, dist) for filename in imagelist])
+            results = p.map(self.calculate_img_rt_mono, [
+                            (root, filename, mtx, dist) for filename in imagelist])
         return results
 
     # 画角点

@@ -30,7 +30,8 @@ class ImagePanel(wx.Panel):
 
     def set_cvmat(self, mat):
         # TODO bgr2rgb and gray check
-        self.bitmap = wx.Bitmap.FromBuffer(mat.shape[1], mat.shape[0], mat)
+        temp_mat = cv2.cvtColor(mat, cv2.COLOR_BGR2RGB)
+        self.bitmap = wx.Bitmap.FromBuffer(temp_mat.shape[1], temp_mat.shape[0], temp_mat)
 
 class DetailsImagePanel(wx.Frame):
     def __init__(self, parent, title, size=(800,600), style=wx.STAY_ON_TOP|wx.FRAME_NO_TASKBAR):
@@ -58,6 +59,5 @@ class DetailsImagePanel(wx.Frame):
 
     def commit_cvdata(self, cvmat):
         resized_cvmat = cv2.resize(cvmat, self.Size)
-        resized_cvmat = cv2.cvtColor(resized_cvmat, cv2.COLOR_BGR2RGB)
         self.img_panel.set_cvmat(resized_cvmat)
     

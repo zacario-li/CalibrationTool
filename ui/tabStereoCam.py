@@ -3,8 +3,9 @@ import os
 import cv2
 import json
 import threading
+import numpy as np
 from utils.storage import LocalStorage
-from ui.components import ImagePanel
+from ui.components import *
 from utils.calib import CalibChessboard, quat_2_rot, rot_2_quat
 from utils.ophelper import *
 from loguru import logger
@@ -17,6 +18,7 @@ class TabStereoCam():
     def __init__(self, parent, tab):
         self.tab = tab
         # global var
+        self.stereocheck = None
         self.image_shape = None
         self.db = self.init_db()
         self.current_leftroot = ''
@@ -103,6 +105,10 @@ class TabStereoCam():
         self.m_btn_save_calibration.Enable(False)
         m_layout_actions_btns.Add(
             self.m_btn_save_calibration, 1, wx.EXPAND, 5)
+
+        self.m_btn_show_pts_dist = wx.Button(self.tab, wx.ID_ANY, u"显示棋盘格分布", wx.DefaultPosition, wx.DefaultSize, 0)
+        self.m_btn_show_pts_dist.Enable(False)
+        m_layout_actions_btns.Add(self.m_btn_show_pts_dist, 1, wx.EXPAND, 5)
         return m_layout_actions_btns
 
     def _create_main_view_layout(self, bitmapsize: wx.Size):
@@ -157,6 +163,7 @@ class TabStereoCam():
                       self.m_btn_calibrate)
         self.tab.Bind(wx.EVT_BUTTON, self.on_save_calibration_results,
                       self.m_btn_save_calibration)
+        self.tab.Bind(wx.EVT_BUTTON, self.on_show_pts_dist, self.m_btn_show_pts_dist)
         self.tab.Bind(wx.EVT_TREE_SEL_CHANGING,
                       self.on_tree_item_select, self.m_treectrl)
         self.tab.Bind(wx.EVT_TREE_ITEM_RIGHT_CLICK,
@@ -351,6 +358,12 @@ class TabStereoCam():
             open_folder(path)
         dlg.Destroy()
 
+    def on_show_pts_dist(self, evt):
+        dpanel = DetailsImagePanel(self.tab.GetParent().GetParent(), "拍摄角点分布")
+        dpanel.commit_cvdata(self.stereocheck)
+        dpanel.Show()
+        self.tab.GetParent().GetParent().Disable()
+
     def _write_2_file(self, filename):
         dc1 = self.dist1
         cm1 = self.mtx1
@@ -399,9 +412,16 @@ class TabStereoCam():
         calib = CalibChessboard(row, col, cellsize)
         CALIB = calib.stereo_calib_parallel if calib.USE_MT is True else calib.stereo_calib
 
-        ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rej_list, calib_list, shape = CALIB(
+        ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rej_list, calib_list, shape, lpts, rpts = CALIB(
             left_file_list[0][0], right_file_list[0][0], lfilelist, rfilelist)
         self.image_shape = shape
+
+        # draw all pts for double check
+        img_for_dist_check = np.zeros((shape[1], shape[0], 3), dtype=np.uint8)
+        pts = np.asarray(lpts).reshape(-1,2)
+        calib.draw_corners(img_for_dist_check, pts, False)
+        self.stereocheck = img_for_dist_check
+
         wx.CallAfter(self._camera_calibration_task_done, dlg, (ret, mtx_l0, dist_l0,
                      mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rej_list, calib_list))
 
@@ -427,6 +447,7 @@ class TabStereoCam():
         dlg.Destroy()
         self.update_treectrl()
         self.m_btn_save_calibration.Enable()
+        self.m_btn_show_pts_dist.Enable()
 
     def _set_rejected_flags(self, rejlist: list):
         for f in rejlist:
