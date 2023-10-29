@@ -532,6 +532,13 @@ class CalibChessboard():
         cv2.drawChessboardCorners(
             img, (self.ROW_COR, self.COL_COR), corners, pattern_found)
 
+    # 画箭头
+    def draw_arrows(self, img:np.array, pts1, pts2):
+        for i in range(len(pts1)):
+            pt1 = tuple(pts1[i])
+            pt2 = tuple(pts2[i])
+            cv2.arrowedLine(img, pt1, pt2, (0,0,255),2)
+    
     # parallel processing the image
     def _process_image_corners(self, rootpath: str, fname: str):
         img = cv2.imread(os.path.join(rootpath, fname), 0)

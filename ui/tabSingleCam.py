@@ -488,8 +488,16 @@ class TabSingleCam():
             results[0][0], filelist)
         self.image_shape = shape
         # draw all pts for double check
+        ## calculate rpj
+        RPJS=[]
+        for i in range(len(rvecs)):
+            rpjs, _ = cv2.projectPoints(calib.objp, np.asarray(rvecs[i]).reshape(-1,3), np.asarray(tvecs[i]).reshape(-1,3), mtx, dist)
+            RPJS.append(rpjs)
+        RPJS = np.asarray(RPJS).reshape(-1,2)
+
         img_for_dist_check = np.zeros((shape[1], shape[0], 3), dtype=np.uint8)
         pts = np.asarray(pts).reshape(-1,2)
+        #calib.draw_arrows(img_for_dist_check, pts, RPJS)
         calib.draw_corners(img_for_dist_check, pts, False)
         self.monocheck = img_for_dist_check
 
