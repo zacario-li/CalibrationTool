@@ -497,8 +497,8 @@ class TabSingleCam():
 
         img_for_dist_check = np.zeros((shape[1], shape[0], 3), dtype=np.uint8)
         pts = np.asarray(pts).reshape(-1,2)
-        #calib.draw_arrows(img_for_dist_check, pts, RPJS)
-        calib.draw_corners(img_for_dist_check, pts, False)
+        calib.draw_arrows(img_for_dist_check, pts, RPJS)
+        #calib.draw_corners(img_for_dist_check, pts, False)
         self.monocheck = img_for_dist_check
 
         wx.CallAfter(self._camera_calibration_task_done, dlg, ret,

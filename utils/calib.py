@@ -534,10 +534,26 @@ class CalibChessboard():
 
     # 画箭头
     def draw_arrows(self, img:np.array, pts1, pts2):
+        # 创建一个箭头上色的列表，不同长度的箭头上不同的颜色
+        start_color = np.array([255, 0, 0])
+        end_color = np.array([0,0,255])
+        gradient_colors = []
+        for i in range(100):
+            color = (start_color*(100-i)+end_color*i)/100
+            gradient_colors.append(color.astype(int))
+        
         for i in range(len(pts1)):
             pt1 = tuple(pts1[i])
             pt2 = tuple(pts2[i])
-            cv2.arrowedLine(img, pt1, pt2, (0,0,255),2)
+            # 因为重投影误差都是亚像素差别，无法在画面上呈现，故放大100倍
+            dx = (pt2[0] - pt1[0])*100
+            dy = (pt2[1] - pt1[1])*100
+            pt1_new = (int(pt1[0]), int(pt1[1]))
+            pt2_new = (int(pt1[0]+dx), int(pt1[1]+dy))
+            # color index [0~99]
+            color_idx = min(99, int(math.sqrt((dx*dx + dy*dy))))
+            color = (int(gradient_colors[color_idx][0]),int(gradient_colors[color_idx][1]),int(gradient_colors[color_idx][2]))
+            cv2.arrowedLine(img, pt1_new, pt2_new, color,2)
     
     # parallel processing the image
     def _process_image_corners(self, rootpath: str, fname: str):
