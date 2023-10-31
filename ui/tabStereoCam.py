@@ -419,7 +419,13 @@ class TabStereoCam():
         # draw all pts for double check
         img_for_dist_check = np.zeros((shape[1], shape[0], 3), dtype=np.uint8)
         pts = np.asarray(lpts).reshape(-1,2)
-        calib.draw_corners(img_for_dist_check, pts, False)
+        #calib.draw_corners(img_for_dist_check, pts, False)
+        RPJS=[]
+        for i in range(len(rvecs)):
+            rpjs, _ = cv2.projectPoints(calib.objp, np.asarray(rvecs[i]).reshape(-1,3), np.asarray(tvecs[i]).reshape(-1,3), mtx_l0, dist_l0)
+            RPJS.append(rpjs)
+        RPJS = np.asarray(RPJS).reshape(-1,2)
+        calib.draw_arrows(img_for_dist_check,pts, RPJS)
         self.stereocheck = img_for_dist_check
 
         wx.CallAfter(self._camera_calibration_task_done, dlg, (ret, mtx_l0, dist_l0,
