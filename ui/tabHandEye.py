@@ -527,7 +527,7 @@ class TabHandEye():
         # test map
         results = cb.calculate_img_rt_parallel(b_p, images, mtx, dist)
         # 判断results里面是否包含(None, None)
-        if any(x == (None, None) for x in results):
+        if any(all(item is None for item in tup) for tup in results):
             return None, None, None, None
 
         for idx in range(len(images)):
