@@ -486,6 +486,12 @@ class TabSingleCam():
         # 执行校准，并得到结果
         ret, mtx, dist, rvecs, tvecs, rpjes, rej_list, cal_list, shape, pts = CALIB(
             results[0][0], filelist)
+        
+        # 检查ret是否为false
+        if ret is False:
+            wx.CallAfter(self._camera_calibration_task_done, dlg, ret,
+                         mtx, dist, rvecs, tvecs, rpjes, rej_list, cal_list)
+            return
         self.image_shape = shape
         # draw all pts for double check
         ## calculate rpj
@@ -506,6 +512,12 @@ class TabSingleCam():
 
     def _camera_calibration_task_done(self, dlg, ret, mtx, dist, rvecs, tvecs, rpjes, rej_list, cal_list):
         dlg.Update(1, "计算结束")
+        if ret is False:
+            dlg.Destroy()
+            wx.Sleep(1)
+            # 使用wxpython创建一个msg box，并提示用户"标定失败"
+            wx.MessageBox("标定失败:角点无法检测", "提示", wx.OK | wx.ICON_ERROR)
+            return
         # wx.Sleep(1)
         self.rpjerr = ret
         self.mtx = mtx

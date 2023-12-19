@@ -414,8 +414,15 @@ class TabStereoCam():
 
         ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rej_list, calib_list, shape, lpts, rpts = CALIB(
             left_file_list[0][0], right_file_list[0][0], lfilelist, rfilelist)
-        self.image_shape = shape
 
+        # 检查ret是否为false
+        if ret is False:
+            dlg.Update(2, "标定失败")
+            wx.CallAfter(self._camera_calibration_task_done, dlg, (ret, mtx_l0, dist_l0,
+                     mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rej_list, calib_list))
+            return
+
+        self.image_shape = shape
         # draw all pts for double check
         img_for_dist_check = np.zeros((shape[1], shape[0], 3), dtype=np.uint8)
         pts = np.asarray(lpts).reshape(-1,2)
@@ -433,6 +440,12 @@ class TabStereoCam():
 
     def _camera_calibration_task_done(self, dlg, data: tuple):
         dlg.Update(2, "计算结束")
+        if data[0] is False:
+            dlg.Destroy()
+            wx.Sleep(1)
+            wx.MessageBox("标定失败:角点无法检测", "提示", wx.OK | wx.ICON_ERROR)
+            return 
+        
         self.rpjerr = data[0]
         self.mtx1 = data[1]
         self.dist1 = data[2]

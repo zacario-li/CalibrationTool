@@ -480,6 +480,10 @@ class TabHandEye():
 
     def _handeye_calibration_task_done(self, dlg, data):
         if self.m_radioBox_calib_type.GetSelection() == 0:
+            if data[0] is None:
+                dlg.Destroy()
+                wx.MessageBox("标定失败:角点无法检测","提示",wx.OK | wx.ICON_ERROR)
+                return 
             # axxb
             r_c2g, t_c2g, r_e, t_e = data
             self.r_error = float(r_e)
@@ -522,6 +526,9 @@ class TabHandEye():
         t_b2c = []
         # test map
         results = cb.calculate_img_rt_parallel(b_p, images, mtx, dist)
+        # 判断results里面是否包含(None, None)
+        if any(x == (None, None) for x in results):
+            return None, None, None, None
 
         for idx in range(len(images)):
             R = results[idx][0]

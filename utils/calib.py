@@ -359,6 +359,10 @@ class CalibChessboard():
 
         ret, mtx, dist, rvecs, tvecs, stdintri, stdextri, perverrs = cv2.calibrateCameraExtended(
             objpoints, imgpoints, gray.shape[::-1], None, None)
+        
+        # 检查角点size是否为0
+        if len(imgpoints) == 0:
+            return False, None, None, None, None, None, None, None, None, None
 
         # TODO evaluate the results
         return ret, mtx, dist, rvecs, tvecs, perverrs, rejected_files, calibrated_files, gray.shape[::-1], imgpoints
@@ -385,6 +389,10 @@ class CalibChessboard():
                 calibrated_files.append(fname)
                 objpoints.append(objp)
                 imgpoints.append(cors)
+        
+        # 检查角点size是否为0
+        if len(imgpoints) == 0:
+            return False, None, None, None, None, None, None, None, None, None
 
         ret, mtx, dist, rvecs, tvecs, stdintri, stdextri, perverrs = cv2.calibrateCameraExtended(
             objpoints, imgpoints, image_for_shape.shape[::-1], None, None)
@@ -413,6 +421,10 @@ class CalibChessboard():
                 objpoints.append(self.objp)
                 imgpoints_left.append(cors_l)
                 imgpoints_right.append(cors_r)
+        
+        # 检查角点size是否为0
+        if len(imgpoints_left) == 0 or len(imgpoints_right) == 0:
+            return False, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None
         # single calibrate
         ret_l, mtx_l, dist_l, rvecs_l, tvecs_l, stdintri_l, stdextri_l, pererr = cv2.calibrateCameraExtended(
             objpoints, imgpoints_left, leftimg.shape[::-1], None, None)
@@ -453,6 +465,10 @@ class CalibChessboard():
                 objpoints.append(self.objp)
                 imgpoints_left.append(lcors)
                 imgpoints_right.append(rcors)
+        # 检查角点size是否为0
+        if len(imgpoints_left) == 0 or len(imgpoints_right) == 0:
+            return False, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None
+        
         # single calibrate for each camera
         ret_l, mtx_l, dist_l, rvecs_l, tvecs_l, stdintri_l, stdextri_l, pererr = cv2.calibrateCameraExtended(
             objpoints, imgpoints_left, image_for_shape.shape[::-1], None, None)
@@ -495,6 +511,8 @@ class CalibChessboard():
     # 计算单张棋盘格的R,T
     def calculate_img_rt(self, grayimg, cameraMatrix, distCoeffs, vis=False):
         _, cors = self.find_corners(grayimg)
+        if _ is not True:
+            return None, None
 
         ret, rvecs, tvecs, inliers = cv2.solvePnPRansac(
             self.objp, cors.reshape(-1, 2), cameraMatrix, distCoeffs)
