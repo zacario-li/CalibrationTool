@@ -9,6 +9,7 @@ from multiprocessing import Pool
 from functools import partial
 from loguru import logger
 from scipy.spatial.transform import Rotation
+from utils.checkerboard import detect_checkerboard
 
 
 def computeangle(ax, xb):
@@ -322,7 +323,9 @@ class HandEye():
 
 
 class CalibChessboard():
-    def __init__(self, row, col, cellsize, use_mt: bool = True):
+    def __init__(self, row, col, cellsize, use_mt: bool = True, use_libcbdet = False):
+        # use libcbdetect
+        self.use_libcbdet=use_libcbdet
         # use multi-threading
         self.USE_MT = use_mt
         # checkerboard pattern
@@ -498,15 +501,21 @@ class CalibChessboard():
 
     # 查找角点
     def find_corners(self, grayimg: np.array):
-        ret, sub_corners = cv2.findChessboardCornersSB(
-            grayimg, (self.ROW_COR, self.COL_COR), cv2.CALIB_CB_NORMALIZE_IMAGE | cv2.CALIB_CB_EXHAUSTIVE | cv2.CALIB_CB_ACCURACY | cv2.CALIB_CB_MARKER)
-
-        if ret is True:
-            sub_corners = cv2.cornerSubPix(
-                grayimg, sub_corners, (19, 19), (-1, -1), self.criteria)
-            return ret, sub_corners
+        if self.use_libcbdet: # https://www.cvlibs.net/software/libcbdetect/
+            cors , score = detect_checkerboard(grayimg, (self.COL_COR, self.ROW_COR))
+            if score < 1.0:
+                return True, cors.astype(np.float32)
+            else:
+                return False, None
         else:
-            return ret, None
+            ret, sub_corners = cv2.findChessboardCornersSB(
+                grayimg, (self.ROW_COR, self.COL_COR), cv2.CALIB_CB_NORMALIZE_IMAGE | cv2.CALIB_CB_EXHAUSTIVE | cv2.CALIB_CB_ACCURACY | cv2.CALIB_CB_MARKER)
+            if ret is True:
+                sub_corners = cv2.cornerSubPix(
+                    grayimg, sub_corners, (19, 19), (-1, -1), self.criteria)
+                return ret, sub_corners
+            else:
+                return ret, None
 
     # 计算单张棋盘格的R,T
     def calculate_img_rt(self, grayimg, cameraMatrix, distCoeffs, vis=False):
