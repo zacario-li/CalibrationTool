@@ -2,6 +2,7 @@ import wx
 from .tabSingleCam import TabSingleCam
 from .tabStereoCam import TabStereoCam
 from .tabHandEye import TabHandEye
+from .tabChat import TabChat
 
 
 class MainWindow(wx.Frame):
@@ -20,12 +21,15 @@ class MainWindow(wx.Frame):
         tabsingle = wx.Panel(self.notebook)
         tabstereo = wx.Panel(self.notebook)
         tabhandeye = wx.Panel(self.notebook)
+        tabchat = wx.Panel(self.notebook)
 
         self.notebook.AddPage(tabsingle, '单目相机')
         self.notebook.AddPage(tabstereo, '双目相机')
         self.notebook.AddPage(tabhandeye, '手眼标定')
+        self.notebook.AddPage(tabchat, '聊天')
 
         # init tabs
         self.tsinglecam = TabSingleCam(self, tabsingle)
         self.tstereocam = TabStereoCam(self, tabstereo)
         self.thandeye = TabHandEye(self, tabhandeye)
+        self.tchat = TabChat(self, tabchat)
