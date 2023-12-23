@@ -98,6 +98,7 @@ class TabHandEye():
 
         m_layout_he_calib_method.Add(
             self.m_radioBox_axzb_calib_method, 0, wx.ALL, 5)
+        
         return m_layout_he_calib_method
 
     def _create_ui_he_dataloader(self):
@@ -221,6 +222,11 @@ class TabHandEye():
         m_layout_he_cb_param.Add(
             self.m_textctrl_cb_cellsize, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 5
         )
+
+        # use libcbdetect
+        self.m_checkbox_use_libcbdetect = wx.CheckBox(
+            self.tab, wx.ID_ANY, u"使用libcbdetect", wx.DefaultPosition, wx.DefaultSize, 0)
+        m_layout_he_cb_param.Add(self.m_checkbox_use_libcbdetect, 0, wx.ALIGN_CENTER_VERTICAL, 0)
 
         return m_layout_he_cb_param
 
@@ -483,6 +489,8 @@ class TabHandEye():
             if data[0] is None:
                 dlg.Destroy()
                 wx.MessageBox("标定失败:角点无法检测","提示",wx.OK | wx.ICON_ERROR)
+                self.m_statictext_calib_err_result.SetLabel("error")
+                self.m_btn_save.Enable(False)
                 return 
             # axxb
             r_c2g, t_c2g, r_e, t_e = data
@@ -508,7 +516,7 @@ class TabHandEye():
         cell_p = float(self.m_textctrl_cb_cellsize.GetValue())
         # ax=xb
         he = HandEye()
-        cb = CalibChessboard(row_p, col_p, cell_p)
+        cb = CalibChessboard(row_p, col_p, cell_p, use_libcbdet=self.m_checkbox_use_libcbdetect.GetValue())
         # 读取传感器rt(NDI/IMU etc.)
         if self.m_checkbox_cb_rvecflag.IsChecked():
             r_g2n, t_g2n = he.generate_gripper2base_with_rvec_txt(a_p)

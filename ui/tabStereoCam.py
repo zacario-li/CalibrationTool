@@ -109,6 +109,10 @@ class TabStereoCam():
         self.m_btn_show_pts_dist = wx.Button(self.tab, wx.ID_ANY, u"显示棋盘格分布", wx.DefaultPosition, wx.DefaultSize, 0)
         self.m_btn_show_pts_dist.Enable(False)
         m_layout_actions_btns.Add(self.m_btn_show_pts_dist, 1, wx.EXPAND, 5)
+
+        # add use libcbdetect
+        self.m_checkbox_use_libcbdetect = wx.CheckBox(self.tab, wx.ID_ANY, u"使用libcbdetect")
+        m_layout_actions_btns.Add(self.m_checkbox_use_libcbdetect, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 0)
         return m_layout_actions_btns
 
     def _create_main_view_layout(self, bitmapsize: wx.Size):
@@ -409,7 +413,7 @@ class TabStereoCam():
         lfilelist = [f[2] for f in left_file_list]
         rfilelist = [f[2] for f in right_file_list]
 
-        calib = CalibChessboard(row, col, cellsize)
+        calib = CalibChessboard(row, col, cellsize, use_libcbdet=self.m_checkbox_use_libcbdetect.GetValue())
         CALIB = calib.stereo_calib_parallel if calib.USE_MT is True else calib.stereo_calib
 
         ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rej_list, calib_list, shape, lpts, rpts = CALIB(
@@ -444,6 +448,8 @@ class TabStereoCam():
             dlg.Destroy()
             wx.Sleep(1)
             wx.MessageBox("标定失败:角点无法检测", "提示", wx.OK | wx.ICON_ERROR)
+            self.m_btn_save_calibration.Enable(False)
+            self.m_btn_show_pts_dist.Enable(False)
             return 
         
         self.rpjerr = data[0]

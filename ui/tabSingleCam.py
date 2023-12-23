@@ -132,6 +132,10 @@ class TabSingleCam():
         self.checkerpattern_h_sizer.Add(
             self.m_staticText_warning, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, pattern_border)
 
+        # add use libcbdetect 
+        self.m_checkbox_use_libcbdetect = wx.CheckBox(self.tab, wx.ID_ANY, label="使用libcbdetect")
+        self.checkerpattern_h_sizer.Add(self.m_checkbox_use_libcbdetect, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, pattern_border)
+        
         sizer.Add(self.checkerpattern_h_sizer, 1, wx.ALL, 5)
 
         # 分隔线
@@ -481,7 +485,7 @@ class TabSingleCam():
     # 相机校准线程
     def _run_camera_calibration_task(self, row, col, cellsize, results, filelist, dlg):
         # 创建单目校准类
-        calib = CalibChessboard(row, col, cellsize)
+        calib = CalibChessboard(row, col, cellsize, use_libcbdet=self.m_checkbox_use_libcbdetect.GetValue())
         CALIB = calib.mono_calib_parallel if calib.USE_MT is True else calib.mono_calib
         # 执行校准，并得到结果
         ret, mtx, dist, rvecs, tvecs, rpjes, rej_list, cal_list, shape, pts = CALIB(
@@ -517,6 +521,8 @@ class TabSingleCam():
             wx.Sleep(1)
             # 使用wxpython创建一个msg box，并提示用户"标定失败"
             wx.MessageBox("标定失败:角点无法检测", "提示", wx.OK | wx.ICON_ERROR)
+            self.m_save_calibration_btn.Enable(False)
+            self.m_show_pts_dist_btn.Enable(False)
             return
         # wx.Sleep(1)
         self.rpjerr = ret
