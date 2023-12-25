@@ -10,7 +10,7 @@ from functools import partial
 from loguru import logger
 from scipy.spatial.transform import Rotation
 from utils.checkerboard import detect_checkerboard
-
+from utils.err import CalibErrType
 
 def computeangle(ax, xb):
     deltaR = xb @ np.linalg.inv(ax)
@@ -45,9 +45,13 @@ def load_camera_param(filename: str, need_trans=False):
         if jstr['Scheme'] != 'opencv':
             NEED_TRANS = True
 
-    ELEMENT_NAME = 'CameraParameters'
-    if 'CameraParameters1' in jstr:
+    if 'CameraParameters' in jstr:
+        ELEMENT_NAME = 'CameraParameters'
+    elif 'CameraParameters1' in jstr:
         ELEMENT_NAME = 'CameraParameters1'
+    else:
+        logger.debug("json file load err")
+        return None, None
 
     intri = jstr[f'{ELEMENT_NAME}']['IntrinsicMatrix']
     dist_r = jstr[f'{ELEMENT_NAME}']['RadialDistortion']
@@ -360,15 +364,15 @@ class CalibChessboard():
                 objpoints.append(self.objp)
                 imgpoints.append(cors)
 
-        ret, mtx, dist, rvecs, tvecs, stdintri, stdextri, perverrs = cv2.calibrateCameraExtended(
-            objpoints, imgpoints, gray.shape[::-1], None, None)
-        
         # 检查角点size是否为0
         if len(imgpoints) == 0:
-            return False, None, None, None, None, None, None, None, None, None
+            return False, None, None, None, None, None, None, None, None, None, CalibErrType.CAL_CORNER_DET_ERR
+
+        ret, mtx, dist, rvecs, tvecs, stdintri, stdextri, perverrs = cv2.calibrateCameraExtended(
+            objpoints, imgpoints, gray.shape[::-1], None, None)        
 
         # TODO evaluate the results
-        return ret, mtx, dist, rvecs, tvecs, perverrs, rejected_files, calibrated_files, gray.shape[::-1], imgpoints
+        return ret, mtx, dist, rvecs, tvecs, perverrs, rejected_files, calibrated_files, gray.shape[::-1], imgpoints, CalibErrType.CAL_OK
 
     # parallen mono calib
     @timer_decorator
@@ -395,13 +399,13 @@ class CalibChessboard():
         
         # 检查角点size是否为0
         if len(imgpoints) == 0:
-            return False, None, None, None, None, None, None, None, None, None
+            return False, None, None, None, None, None, None, None, None, None, CalibErrType.CAL_CORNER_DET_ERR
 
         ret, mtx, dist, rvecs, tvecs, stdintri, stdextri, perverrs = cv2.calibrateCameraExtended(
             objpoints, imgpoints, image_for_shape.shape[::-1], None, None)
 
         # TODO evaluate the results
-        return ret, mtx, dist, rvecs, tvecs, perverrs, rejected_files, calibrated_files, image_for_shape.shape[::-1], imgpoints
+        return ret, mtx, dist, rvecs, tvecs, perverrs, rejected_files, calibrated_files, image_for_shape.shape[::-1], imgpoints, CalibErrType.CAL_OK
 
     # 双目校准
     @timer_decorator
@@ -427,7 +431,7 @@ class CalibChessboard():
         
         # 检查角点size是否为0
         if len(imgpoints_left) == 0 or len(imgpoints_right) == 0:
-            return False, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None
+            return False, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, CalibErrType.CAL_CORNER_DET_ERR
         # single calibrate
         ret_l, mtx_l, dist_l, rvecs_l, tvecs_l, stdintri_l, stdextri_l, pererr = cv2.calibrateCameraExtended(
             objpoints, imgpoints_left, leftimg.shape[::-1], None, None)
@@ -442,7 +446,7 @@ class CalibChessboard():
         ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr = cv2.stereoCalibrateExtended(
             objpoints, imgpoints_left, imgpoints_right, mtx_l, dist_l, mtx_r, dist_r, leftimg.shape[::-1], R, T, criteria=self.criteria)
 
-        return ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rejected_files, calibrated_files, leftimg.shape[::-1], imgpoints_left, imgpoints_right
+        return ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rejected_files, calibrated_files, leftimg.shape[::-1], imgpoints_left, imgpoints_right, CalibErrType.CAL_OK
 
     @timer_decorator
     def stereo_calib_parallel(self, leftrootpath: str, rightrootpath: str, leftfilelist: list, rightfilelist: list):
@@ -470,7 +474,7 @@ class CalibChessboard():
                 imgpoints_right.append(rcors)
         # 检查角点size是否为0
         if len(imgpoints_left) == 0 or len(imgpoints_right) == 0:
-            return False, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None
+            return False, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, CalibErrType.CAL_CORNER_DET_ERR
         
         # single calibrate for each camera
         ret_l, mtx_l, dist_l, rvecs_l, tvecs_l, stdintri_l, stdextri_l, pererr = cv2.calibrateCameraExtended(
@@ -484,7 +488,7 @@ class CalibChessboard():
         ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr = cv2.stereoCalibrateExtended(
             objpoints, imgpoints_left, imgpoints_right, mtx_l, dist_l, mtx_r, dist_r, image_for_shape.shape[::-1], R, T, criteria=self.criteria)
 
-        return ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rejected_files, calibrated_files, image_for_shape.shape[::-1], imgpoints_left, imgpoints_right
+        return ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rejected_files, calibrated_files, image_for_shape.shape[::-1], imgpoints_left, imgpoints_right, CalibErrType.CAL_OK
 
     # 重投影误差
 

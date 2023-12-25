@@ -9,6 +9,7 @@ from ui.components import ImagePanel
 from utils.ophelper import *
 from utils.storage import LocalStorage
 from utils.calib import CalibChessboard, HandEye, load_camera_param, combine_RT
+from utils.err import CalibErrType
 from loguru import logger
 
 HE_IMAGE_VIEW_W = 800
@@ -409,7 +410,7 @@ class TabHandEye():
                 row = int(self.m_textctrl_cb_row.GetValue())
                 col = int(self.m_textctrl_cb_col.GetValue())
                 cellsize = float(self.m_textctrl_cb_cellsize.GetValue())
-                calib_instance = CalibChessboard(row, col, cellsize)
+                calib_instance = CalibChessboard(row, col, cellsize, use_libcbdet=self.m_checkbox_use_libcbdetect.GetValue())
                 _, cors = calib_instance.find_corners(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY))
                 calib_instance.draw_corners(img, cors)
             img_w = img.shape[1]
@@ -445,10 +446,18 @@ class TabHandEye():
                     self.m_textctrl_load_a_path.SetLabel(self.A_path)
                 if src_btn_id == Cam_id:
                     self.cam_param_path = filepath
-                    self.m_textctrl_cam_param_path.SetLabel(
-                        self.cam_param_path)
                     # load cam params
                     self.cam_mtx, self.cam_dist = load_camera_param(filepath)
+                    if isinstance(self.cam_mtx, np.ndarray) or isinstance(self.cam_dist, np.ndarray):
+                        self.m_textctrl_cam_param_path.SetLabel(
+                            self.cam_param_path)
+                    else:
+                        # load err, create a msg box to warn user
+                        wx.MessageBox(
+                            "加载相机参数失败，请检查相机参数文件是否正确",
+                            "错误", wx.OK | wx.ICON_ERROR)
+                        self.m_textctrl_cam_param_path.SetLabel("")
+                        self.cam_param_path = None
         else:
             dlg = wx.DirDialog(self.tab, "选择标定板图像路径",
                                style=wx.DD_DEFAULT_STYLE | wx.DD_NEW_DIR_BUTTON)
@@ -477,19 +486,19 @@ class TabHandEye():
 
     def _run_handeye_calibration_task(self, dlg):
         if self.m_radioBox_calib_type.GetSelection() == 0:
-            r_c2g, t_c2g, r_e, t_e = self.do_axxb_calib()
+            ret, r_c2g, t_c2g, r_e, t_e = self.do_axxb_calib()
             wx.CallAfter(self._handeye_calibration_task_done,
-                         dlg, (r_c2g, t_c2g, r_e, t_e))
+                         dlg, (ret, r_c2g, t_c2g, r_e, t_e))
         else:
             self.do_axzb_calib()
             wx.CallAfter(self._handeye_calibration_task_done, dlg, (0, 0))
 
     def _handeye_calibration_task_done(self, dlg, data):
         if self.m_radioBox_calib_type.GetSelection() == 0:
-            if data[0] is None:
+            if data[0] is not CalibErrType.CAL_OK:
                 dlg.Destroy()
-                wx.MessageBox("标定失败:角点无法检测","提示",wx.OK | wx.ICON_ERROR)
-                self.m_statictext_calib_err_result.SetLabel("error")
+                wx.MessageBox(f"标定失败:{CalibErrType.to_string(data[0])}","提示",wx.OK | wx.ICON_ERROR)
+                self.m_statictext_calib_err_result.SetLabel(f"ERROR: {CalibErrType.to_string(data[0])}")
                 self.m_btn_save.Enable(False)
                 return 
             # axxb
@@ -547,10 +556,13 @@ class TabHandEye():
         he_method = self.m_radioBox_axxb_calib_method.GetSelection()
         method_str = self.m_radioBox_axxb_calib_method.GetString(he_method)
         method_id = self.he_calib_method_map[method_str]
+        if len(r_g2n) != len(R_b2c):
+            logger.warning("g2n size not match b2c")
+            return  CalibErrType.CAL_DATA_SIZE_NOT_MATCH, None, None, None, None
 
         r_c2g, t_c2g, r_e, t_e = he.calib_axxb(
             r_g2n, t_g2n, R_b2c, t_b2c, method_id)
-        return r_c2g, t_c2g, r_e, t_e
+        return CalibErrType.CAL_OK, r_c2g, t_c2g, r_e, t_e
 
     def do_axzb_calib(self):
         pass

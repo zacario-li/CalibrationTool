@@ -7,6 +7,7 @@ import numpy as np
 from utils.storage import LocalStorage
 from ui.components import *
 from utils.calib import CalibChessboard, quat_2_rot, rot_2_quat
+from utils.err import CalibErrType
 from utils.ophelper import *
 from loguru import logger
 
@@ -283,7 +284,7 @@ class TabStereoCam():
                 row = int(self.current_row_cors)
                 col = int(self.current_col_cors)
                 cellsize = int(self.current_cellsize)
-                calib_instance = CalibChessboard(row, col, cellsize)
+                calib_instance = CalibChessboard(row, col, cellsize, self.m_checkbox_use_libcbdetect.GetValue())
                 _, lcors = calib_instance.find_corners(
                     cv2.cvtColor(limage_data, cv2.COLOR_BGR2GRAY))
                 _, rcors = calib_instance.find_corners(
@@ -416,14 +417,14 @@ class TabStereoCam():
         calib = CalibChessboard(row, col, cellsize, use_libcbdet=self.m_checkbox_use_libcbdetect.GetValue())
         CALIB = calib.stereo_calib_parallel if calib.USE_MT is True else calib.stereo_calib
 
-        ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rej_list, calib_list, shape, lpts, rpts = CALIB(
+        ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rej_list, calib_list, shape, lpts, rpts, err = CALIB(
             left_file_list[0][0], right_file_list[0][0], lfilelist, rfilelist)
 
         # 检查ret是否为false
         if ret is False:
             dlg.Update(2, "标定失败")
             wx.CallAfter(self._camera_calibration_task_done, dlg, (ret, mtx_l0, dist_l0,
-                     mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rej_list, calib_list))
+                     mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rej_list, calib_list, err))
             return
 
         self.image_shape = shape
@@ -440,14 +441,14 @@ class TabStereoCam():
         self.stereocheck = img_for_dist_check
 
         wx.CallAfter(self._camera_calibration_task_done, dlg, (ret, mtx_l0, dist_l0,
-                     mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rej_list, calib_list))
+                     mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rej_list, calib_list, err))
 
     def _camera_calibration_task_done(self, dlg, data: tuple):
         dlg.Update(2, "计算结束")
         if data[0] is False:
             dlg.Destroy()
             wx.Sleep(1)
-            wx.MessageBox("标定失败:角点无法检测", "提示", wx.OK | wx.ICON_ERROR)
+            wx.MessageBox(f"标定失败:{CalibErrType.to_string(data[14])}", "警告", wx.OK | wx.ICON_ERROR)
             self.m_btn_save_calibration.Enable(False)
             self.m_btn_show_pts_dist.Enable(False)
             return 
@@ -466,6 +467,7 @@ class TabStereoCam():
         pererr = data[11]
         rej_list = data[12]
         calib_list = data[13]
+        errtype = data[14]
         dlg.Update(3, "保存标定结果到数据库...")
         self._set_rejected_flags(rej_list)
         self._save_each_image_rt_rpje((rvecs, tvecs, pererr, calib_list))

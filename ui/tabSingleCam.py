@@ -10,6 +10,7 @@ from loguru import logger
 from utils.ophelper import *
 from utils.storage import LocalStorage
 from utils.calib import CalibChessboard, quat_2_rot, rot_2_quat
+from utils.err import CalibErrType
 from ui.components import *
 
 IMAGE_VIEW_W = 800
@@ -325,7 +326,7 @@ class TabSingleCam():
                     cellsize = 1.0
                 else:
                     cellsize = float(self.m_textCtrl_cellsize.GetValue())
-                calib_instance = CalibChessboard(row, col, cellsize)
+                calib_instance = CalibChessboard(row, col, cellsize, use_libcbdet=self.m_checkbox_use_libcbdetect.GetValue())
                 _, cors = calib_instance.find_corners(
                     cv2.cvtColor(image_data, cv2.COLOR_BGR2GRAY))
                 calib_instance.draw_corners(image_data, cors)
@@ -488,13 +489,13 @@ class TabSingleCam():
         calib = CalibChessboard(row, col, cellsize, use_libcbdet=self.m_checkbox_use_libcbdetect.GetValue())
         CALIB = calib.mono_calib_parallel if calib.USE_MT is True else calib.mono_calib
         # 执行校准，并得到结果
-        ret, mtx, dist, rvecs, tvecs, rpjes, rej_list, cal_list, shape, pts = CALIB(
+        ret, mtx, dist, rvecs, tvecs, rpjes, rej_list, cal_list, shape, pts, err = CALIB(
             results[0][0], filelist)
         
         # 检查ret是否为false
         if ret is False:
             wx.CallAfter(self._camera_calibration_task_done, dlg, ret,
-                         mtx, dist, rvecs, tvecs, rpjes, rej_list, cal_list)
+                         mtx, dist, rvecs, tvecs, rpjes, rej_list, cal_list, err)
             return
         self.image_shape = shape
         # draw all pts for double check
@@ -512,15 +513,15 @@ class TabSingleCam():
         self.monocheck = img_for_dist_check
 
         wx.CallAfter(self._camera_calibration_task_done, dlg, ret,
-                     mtx, dist, rvecs, tvecs, rpjes, rej_list, cal_list)
+                     mtx, dist, rvecs, tvecs, rpjes, rej_list, cal_list, err)
 
-    def _camera_calibration_task_done(self, dlg, ret, mtx, dist, rvecs, tvecs, rpjes, rej_list, cal_list):
+    def _camera_calibration_task_done(self, dlg, ret, mtx, dist, rvecs, tvecs, rpjes, rej_list, cal_list, err):
         dlg.Update(1, "计算结束")
         if ret is False:
             dlg.Destroy()
             wx.Sleep(1)
             # 使用wxpython创建一个msg box，并提示用户"标定失败"
-            wx.MessageBox("标定失败:角点无法检测", "提示", wx.OK | wx.ICON_ERROR)
+            wx.MessageBox(f"标定失败:{CalibErrType.to_string(err)}", "提示", wx.OK | wx.ICON_ERROR)
             self.m_save_calibration_btn.Enable(False)
             self.m_show_pts_dist_btn.Enable(False)
             return
