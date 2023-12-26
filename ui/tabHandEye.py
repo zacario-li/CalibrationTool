@@ -502,7 +502,7 @@ class TabHandEye():
                 self.m_btn_save.Enable(False)
                 return 
             # axxb
-            r_c2g, t_c2g, r_e, t_e = data
+            ret, r_c2g, t_c2g, r_e, t_e = data
             self.r_error = float(r_e)
             self.t_error = float(t_e)
             self.X = combine_RT(r_c2g, float(
