@@ -557,11 +557,11 @@ class TabSingleCam():
     # 把标定结果写入数据库
     def _save_each_image_rt_rpje(self, rvecs, tvecs, rpjes, filelist, pts, RPJS):
         if len(rvecs) == len(filelist):
-            # devide pts/RPJS into each image by len(rvecs)
+            # devide pts/RPJS into each image by len(filelist)
             pts_split = np.split(pts, len(filelist))
             RPJS_split = np.split(RPJS, len(filelist))
 
-            for f, rv, tv, rpje, _pts, _RJPS in zip(filelist, rvecs, tvecs, rpjes, pts_split, RPJS_split):
+            for f, rv, tv, rpje, _pts, _RPJS in zip(filelist, rvecs, tvecs, rpjes, pts_split, RPJS_split):
                 # convert rt vecs into quat
                 R, _ = cv2.Rodrigues(rv)
                 q = rot_2_quat(R)

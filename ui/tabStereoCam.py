@@ -10,6 +10,7 @@ from utils.calib import CalibChessboard, quat_2_rot, rot_2_quat
 from utils.err import CalibErrType
 from utils.ophelper import *
 from loguru import logger
+import pickle
 
 IMAGE_VIEW_W = 480
 IMAGE_VIEW_H = 270
@@ -179,10 +180,10 @@ class TabStereoCam():
         # create a stereo camera calib table
         '''
         use quaternion and position to represent rotation and translation
-        |id integer|rootpath text|cameraid int|filename text|isreject bool|qw float |qx float  |qy float  |qz float  |tx float|ty float| tz float|  rpje|
-        |----------|-------------|------------|-------------|-------------|---------|----------|----------|----------|--------|--------|---------|------|
-        |    0     |c:\data\L    |0           |    img1.png |  False      |0.1085443|-0.2130855|-0.9618053|-0.1332042| -44.071| 272.898|-1388.602|0.1826|
-        |    1     |c:\data\R    |1           |    img1.png |  True       |         |          |          |          |        |        |         |      |
+        |id integer|rootpath text|cameraid int|filename text|isreject bool|qw float |qx float  |qy float  |qz float  |tx float|ty float| tz float|  rpje| cors blob|
+        |----------|-------------|------------|-------------|-------------|---------|----------|----------|----------|--------|--------|---------|------|----------|
+        |    0     |c:\data\L    |0           |    img1.png |  False      |0.1085443|-0.2130855|-0.9618053|-0.1332042| -44.071| 272.898|-1388.602|0.1826|byte array|
+        |    1     |c:\data\R    |1           |    img1.png |  True       |         |          |          |          |        |        |         |      |          |
         '''
         TABLE_SQL_STR = '''id INTEGER PRIMARY KEY AUTOINCREMENT, 
                             rootpath text,
@@ -196,8 +197,10 @@ class TabStereoCam():
                             tx float, 
                             ty float, 
                             tz float,
-                            rpje float'''
-        self.DB_FILENAME = ':memory:'
+                            rpje float,
+                            cors blob'''
+        #self.DB_FILENAME = ':memory:'
+        self.DB_FILENAME = 'stereo.db'
         self.DB_TABLENAME = 'stereo'
         db = LocalStorage(self.DB_FILENAME)
         ret = db.create_table(self.DB_TABLENAME, TABLE_SQL_STR)
@@ -285,10 +288,18 @@ class TabStereoCam():
                 col = int(self.current_col_cors)
                 cellsize = int(self.current_cellsize)
                 calib_instance = CalibChessboard(row, col, cellsize, self.m_checkbox_use_libcbdetect.GetValue())
-                _, lcors = calib_instance.find_corners(
-                    cv2.cvtColor(limage_data, cv2.COLOR_BGR2GRAY))
-                _, rcors = calib_instance.find_corners(
-                    cv2.cvtColor(rimage_data, cv2.COLOR_BGR2GRAY))
+                # retrive db's cors
+                # _, lcors = calib_instance.find_corners(
+                #     cv2.cvtColor(limage_data, cv2.COLOR_BGR2GRAY))
+                # _, rcors = calib_instance.find_corners(
+                #     cv2.cvtColor(rimage_data, cv2.COLOR_BGR2GRAY))
+                lresult = self.db.retrive_data(self.DB_TABLENAME, "cors", f'WHERE filename=\'{fnames[0]}\' AND cameraid=0')
+                _lcors = [c[0] for c in lresult]
+                lcors = pickle.loads(_lcors[0])
+                rresult = self.db.retrive_data(self.DB_TABLENAME, "cors", f'WHERE filename=\'{fnames[1]}\' AND cameraid=1')
+                _rcors = [c[0] for c in rresult]
+                rcors = pickle.loads(_rcors[0])
+
                 calib_instance.draw_corners(limage_data, lcors)
                 calib_instance.draw_corners(rimage_data, rcors)
             limage_data = cv2.cvtColor(limage_data, cv2.COLOR_BGR2RGB)
@@ -414,7 +425,7 @@ class TabStereoCam():
         lfilelist = [f[2] for f in left_file_list]
         rfilelist = [f[2] for f in right_file_list]
 
-        calib = CalibChessboard(row, col, cellsize, use_libcbdet=self.m_checkbox_use_libcbdetect.GetValue())
+        calib = CalibChessboard(row, col, cellsize, use_mt=False, use_libcbdet=self.m_checkbox_use_libcbdetect.GetValue())
         CALIB = calib.stereo_calib_parallel if calib.USE_MT is True else calib.stereo_calib
 
         ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rej_list, calib_list, shape, lpts, rpts, err = CALIB(
@@ -424,24 +435,25 @@ class TabStereoCam():
         if ret is False:
             dlg.Update(2, "标定失败")
             wx.CallAfter(self._camera_calibration_task_done, dlg, (ret, mtx_l0, dist_l0,
-                     mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rej_list, calib_list, err))
+                     mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rej_list, calib_list, err, None, None))
             return
 
         self.image_shape = shape
         # draw all pts for double check
         img_for_dist_check = np.zeros((shape[1], shape[0], 3), dtype=np.uint8)
-        pts = np.asarray(lpts).reshape(-1,2)
+        lpts = np.asarray(lpts).reshape(-1,2)
+        rpts = np.asarray(rpts).reshape(-1,2)
         #calib.draw_corners(img_for_dist_check, pts, False)
         RPJS=[]
         for i in range(len(rvecs)):
             rpjs, _ = cv2.projectPoints(calib.objp, np.asarray(rvecs[i]).reshape(-1,3), np.asarray(tvecs[i]).reshape(-1,3), mtx_l0, dist_l0)
             RPJS.append(rpjs)
         RPJS = np.asarray(RPJS).reshape(-1,2)
-        calib.draw_arrows(img_for_dist_check,pts, RPJS)
+        calib.draw_arrows(img_for_dist_check,lpts, RPJS)
         self.stereocheck = img_for_dist_check
 
         wx.CallAfter(self._camera_calibration_task_done, dlg, (ret, mtx_l0, dist_l0,
-                     mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rej_list, calib_list, err))
+                     mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rej_list, calib_list, err, lpts, rpts))
 
     def _camera_calibration_task_done(self, dlg, data: tuple):
         dlg.Update(2, "计算结束")
@@ -468,9 +480,11 @@ class TabStereoCam():
         rej_list = data[12]
         calib_list = data[13]
         errtype = data[14]
+        lpts = data[15]
+        rpts = data[16]
         dlg.Update(3, "保存标定结果到数据库...")
         self._set_rejected_flags(rej_list)
-        self._save_each_image_rt_rpje((rvecs, tvecs, pererr, calib_list))
+        self._save_each_image_rt_rpje((rvecs, tvecs, pererr, calib_list, lpts, rpts))
         dlg.Destroy()
         self.update_treectrl()
         self.m_btn_save_calibration.Enable()
@@ -488,12 +502,21 @@ class TabStereoCam():
         tvecs = data[1]
         pererr = data[2]
         calib_list = data[3]
+        lpts = data[4]
+        rpts = data[5]
         if len(rvecs) == len(calib_list):
-            for f, rv, tv, rpje in zip(calib_list, rvecs, tvecs, pererr):
+            # devide pts/RPJS into each image by len(calib_list)
+            lpts_split = np.split(lpts, len(calib_list))
+            rpts_split = np.split(rpts, len(calib_list))
+
+            for f, rv, tv, rpje, _lpts, _rpts in zip(calib_list, rvecs, tvecs, pererr, lpts_split, rpts_split):
                 R, _ = cv2.Rodrigues(rv)
                 q = rot_2_quat(R)
                 lrpje = "{:.3f}".format(float(rpje[0]))
                 rrpje = "{:.3f}".format(float(rpje[1]))
+                lcors_bytes = pickle.dumps(_lpts)
+                rcors_bytes = pickle.dumps(_rpts)
+                
                 self.db.modify_data(
                     self.DB_TABLENAME,
                     f'''SET isreject=0,
@@ -504,9 +527,10 @@ class TabStereoCam():
                     tx={float(tv[0])},
                     ty={float(tv[1])},
                     tz={float(tv[2])},
-                    rpje={float(lrpje)} 
+                    rpje={float(lrpje)},
+                    cors=?
                     WHERE filename=\'{f[0]}\' AND cameraid=0
-                    ''')
+                    ''', (lcors_bytes,))
                 self.db.modify_data(
                     self.DB_TABLENAME,
                     f'''SET isreject=0,
@@ -517,9 +541,10 @@ class TabStereoCam():
                     tx={float(tv[0])},
                     ty={float(tv[1])},
                     tz={float(tv[2])},
-                    rpje={float(rrpje)} 
+                    rpje={float(rrpje)},
+                    cors=? 
                     WHERE filename=\'{f[1]}\' AND cameraid=1
-                    ''')
+                    ''', (rcors_bytes,))
 
 
 class StereoFileLoader(wx.Dialog):
@@ -676,9 +701,9 @@ class StereoFileLoader(wx.Dialog):
         for litem, ritem in zip(self.pp.current_leftfile_list, self.pp.current_rightfile_list):
             count += 1
             self.pp.db.write_data(
-                self.pp.DB_TABLENAME, f'null, \'{lp}\', 0,\'{litem}\', 0, null, null, null, null, null, null, null, null')
+                self.pp.DB_TABLENAME, f'null, \'{lp}\', 0,\'{litem}\', 0, null, null, null, null, null, null, null, null, null')
             self.pp.db.write_data(
-                self.pp.DB_TABLENAME, f'null, \'{rp}\', 1,\'{ritem}\', 0, null, null, null, null, null, null, null, null')
+                self.pp.DB_TABLENAME, f'null, \'{rp}\', 1,\'{ritem}\', 0, null, null, null, null, null, null, null, null, null')
             (keep_going, skip) = dlg.Update(count, f'added {count} images')
         dlg.Destroy()
         self.pp.update_treectrl()
