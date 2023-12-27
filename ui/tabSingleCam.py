@@ -6,6 +6,7 @@ import numpy as np
 import wx
 import json
 from loguru import logger
+import pickle
 
 from utils.ophelper import *
 from utils.storage import LocalStorage
@@ -184,10 +185,10 @@ class TabSingleCam():
         # create a single camera calib table
         '''
         use quaternion and position to represent rotation and translation
-        |id integer|rootpath text|filename text|isreject bool|qw float |qx float  |qy float  |qz float  |tx float|ty float| tz float|  rpje|
-        |----------|-------------|-------------|-------------|---------|----------|----------|----------|--------|--------|---------|------|
-        |    0     |c:\data\     |    img1.png |  False      |0.1085443|-0.2130855|-0.9618053|-0.1332042| -44.071| 272.898|-1388.602|0.1826|
-        |    1     |c:\data\     |    img2.png |  True       |         |          |          |          |        |        |         |      |
+        |id integer|rootpath text|filename text|isreject bool|qw float |qx float  |qy float  |qz float  |tx float|ty float| tz float|  rpje| cors blob |
+        |----------|-------------|-------------|-------------|---------|----------|----------|----------|--------|--------|---------|------|-----------|
+        |    0     |c:\data\     |    img1.png |  False      |0.1085443|-0.2130855|-0.9618053|-0.1332042| -44.071| 272.898|-1388.602|0.1826|array bytes|
+        |    1     |c:\data\     |    img2.png |  True       |         |          |          |          |        |        |         |      |           |
         '''
         TABLE_SQL_STR = '''id INTEGER PRIMARY KEY AUTOINCREMENT, 
                             rootpath text,
@@ -200,7 +201,8 @@ class TabSingleCam():
                             tx float, 
                             ty float, 
                             tz float,
-                            rpje float'''
+                            rpje float,
+                            cors blob'''
         self.DB_FILENAME = ':memory:'
         self.DB_TABLENAME = 'single'
         db = LocalStorage(self.DB_FILENAME)
@@ -326,9 +328,14 @@ class TabSingleCam():
                     cellsize = 1.0
                 else:
                     cellsize = float(self.m_textCtrl_cellsize.GetValue())
-                calib_instance = CalibChessboard(row, col, cellsize, use_libcbdet=self.m_checkbox_use_libcbdetect.GetValue())
-                _, cors = calib_instance.find_corners(
-                    cv2.cvtColor(image_data, cv2.COLOR_BGR2GRAY))
+                # todo 
+                # retrive db's cors
+                calib_instance = CalibChessboard(row, col, cellsize, use_mt=False)
+                result = self.db.retrive_data(self.DB_TABLENAME, "cors", f'WHERE filename=\'{filename}\' ')
+                _cors = [c[0] for c in result]
+                cors = pickle.loads(_cors[0])
+                # _, cors = calib_instance.find_corners(
+                #      cv2.cvtColor(image_data, cv2.COLOR_BGR2GRAY))
                 calib_instance.draw_corners(image_data, cors)
 
             image_data = cv2.cvtColor(image_data, cv2.COLOR_BGR2RGB)
@@ -404,7 +411,7 @@ class TabSingleCam():
         for item in images:
             count += 1
             self.db.write_data(
-                self.DB_TABLENAME, f'null, \'{self.current_root_dir}\', \'{item}\', 0, null, null, null, null, null, null, null, null')
+                self.DB_TABLENAME, f'null, \'{self.current_root_dir}\', \'{item}\', 0, null, null, null, null, null, null, null, null, null')
             (keep_going, skip) = dlg.Update(count, f'added {count} images')
         # wx.Sleep(1)
         dlg.Destroy()
@@ -495,7 +502,7 @@ class TabSingleCam():
         # 检查ret是否为false
         if ret is False:
             wx.CallAfter(self._camera_calibration_task_done, dlg, ret,
-                         mtx, dist, rvecs, tvecs, rpjes, rej_list, cal_list, err)
+                         mtx, dist, rvecs, tvecs, rpjes, rej_list, cal_list, err, None, None)
             return
         self.image_shape = shape
         # draw all pts for double check
@@ -513,13 +520,12 @@ class TabSingleCam():
         self.monocheck = img_for_dist_check
 
         wx.CallAfter(self._camera_calibration_task_done, dlg, ret,
-                     mtx, dist, rvecs, tvecs, rpjes, rej_list, cal_list, err)
+                     mtx, dist, rvecs, tvecs, rpjes, rej_list, cal_list, err, pts, RPJS)
 
-    def _camera_calibration_task_done(self, dlg, ret, mtx, dist, rvecs, tvecs, rpjes, rej_list, cal_list, err):
+    def _camera_calibration_task_done(self, dlg, ret, mtx, dist, rvecs, tvecs, rpjes, rej_list, cal_list, err, pts, RPJS):
         dlg.Update(1, "计算结束")
         if ret is False:
             dlg.Destroy()
-            wx.Sleep(1)
             # 使用wxpython创建一个msg box，并提示用户"标定失败"
             wx.MessageBox(f"标定失败:{CalibErrType.to_string(err)}", "提示", wx.OK | wx.ICON_ERROR)
             self.m_save_calibration_btn.Enable(False)
@@ -533,7 +539,7 @@ class TabSingleCam():
         dlg.Update(2, "更新校准失败的文件信息...")
         self._set_rejected_flags(rej_list)
         dlg.Update(3, "保存标定结果到数据库...")
-        self._save_each_image_rt_rpje(rvecs, tvecs, rpjes, cal_list)
+        self._save_each_image_rt_rpje(rvecs, tvecs, rpjes, cal_list, pts, RPJS)
         wx.Sleep(1)
         dlg.Destroy()
         # update tree ctrl
@@ -549,13 +555,19 @@ class TabSingleCam():
                                 f'''SET isreject=1 WHERE filename=\'{f}\' ''')
 
     # 把标定结果写入数据库
-    def _save_each_image_rt_rpje(self, rvecs, tvecs, rpjes, filelist):
+    def _save_each_image_rt_rpje(self, rvecs, tvecs, rpjes, filelist, pts, RPJS):
         if len(rvecs) == len(filelist):
-            for f, rv, tv, rpje in zip(filelist, rvecs, tvecs, rpjes):
+            # devide pts/RPJS into each image by len(rvecs)
+            pts_split = np.split(pts, len(filelist))
+            RPJS_split = np.split(RPJS, len(filelist))
+
+            for f, rv, tv, rpje, _pts, _RJPS in zip(filelist, rvecs, tvecs, rpjes, pts_split, RPJS_split):
                 # convert rt vecs into quat
                 R, _ = cv2.Rodrigues(rv)
                 q = rot_2_quat(R)
                 rpje = "{:.3f}".format(float(rpje))
+                # cors to blob
+                cors_bytes = pickle.dumps(_pts)
                 self.db.modify_data(
                     self.DB_TABLENAME, f'''SET isreject=0, 
                                         qw={float(q[0])}, 
@@ -565,7 +577,8 @@ class TabSingleCam():
                                         tx={float(tv[0])},
                                         ty={float(tv[1])},
                                         tz={float(tv[2])},
-                                        rpje={float(rpje)} 
-                                        WHERE filename=\'{f}\' ''')
+                                        rpje={float(rpje)},
+                                        cors=?
+                                        WHERE filename=\'{f}\' ''', (cors_bytes,))
         else:
             logger.debug(f'please check the file list')

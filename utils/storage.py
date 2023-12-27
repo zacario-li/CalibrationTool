@@ -39,9 +39,12 @@ class LocalStorage():
         self.db_connection.commit()
 
     # modify_data(self.DB_TABLENAME, f'SET qw=0.123456, qx= 1.987654 WHERE filename=\'20230607_154004.png\'')
-    def modify_data(self, tablename: str, datasql: str):
+    def modify_data(self, tablename: str, datasql: str, params=None):
         full_sql = f'UPDATE {tablename} ' + datasql
-        self.cursor.execute(full_sql)
+        if params is None:
+            self.cursor.execute(full_sql)
+        else:
+            self.cursor.execute(full_sql, params)
         self.db_connection.commit()
 
     # delete_data(self.DB_TABLENAME, f'WHERE filename=\'20230607_154448.png\'')

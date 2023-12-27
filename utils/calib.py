@@ -385,7 +385,7 @@ class CalibChessboard():
         # 尝试读取一张图片，用于后续读取图片尺寸
         image_for_shape = cv2.imread(os.path.join(rootpath, filelist[0]), 0)
 
-        with Pool(min(len(filelist), os.cpu_count())) as p:
+        with Pool(min(len(filelist), os.cpu_count()-1)) as p:
             results = p.map(
                 partial(self._process_image_corners, rootpath), filelist)
 
@@ -545,10 +545,14 @@ class CalibChessboard():
         return R, tvecs
 
     def calculate_img_rt_mono(self, args):
+        rej_flag = False
         root, filename, mtx, dist = args
         img = cv2.imread(os.path.join(root, filename), 0)
         R, tvecs = self.calculate_img_rt(img, mtx, dist)
-        return (R, tvecs)
+        # 记录无法检测角点的文件名
+        if R is None:
+            rej_flag = True
+        return (R, tvecs, rej_flag)
 
     # 多线程计算棋盘格R,T
     @timer_decorator
