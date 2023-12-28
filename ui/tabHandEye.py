@@ -3,12 +3,13 @@ import os
 import threading
 import json
 import cv2
+import pickle
 from multiprocessing import Pool
 import numpy as np
 from ui.components import ImagePanel
 from utils.ophelper import *
 from utils.storage import LocalStorage
-from utils.calib import CalibChessboard, HandEye, load_camera_param, combine_RT
+from utils.calib import CalibChessboard, HandEye, load_camera_param, combine_RT, rot_2_quat
 from utils.err import CalibErrType
 from loguru import logger
 
@@ -321,13 +322,23 @@ class TabHandEye():
     def update_treectrl(self, all: bool = False):
         tree = self.m_treectrl
         tree.DeleteAllItems()
+        if all is False:
+            condi = f'WHERE isreject=0'
+        else:
+            condi = ''
+
+        results = self.db.retrive_data(
+            self.DB_TABLENAME, f'rootpath, filename, isreject', condi)
+        filelist = [f[1] for f in results]
+        rej_flag = [r[2] for r in results]
 
         dirroot = tree.AddRoot('文件名', image=0)
-        filelist = self._list_images_with_suffix(self.B_path)
         if len(filelist) > 0:
-            for fname in filelist:
+            for fname, rf in zip(filelist, rej_flag):
                 newItem = tree.AppendItem(
                     dirroot, f'{fname}', data=f'{fname}')
+                if rf == 1:
+                    tree.SetItemTextColour(newItem, wx.RED)
                 tree.SetItemImage(newItem, self.icon_ok)
             tree.Expand(dirroot)
             tree.SelectItem(newItem)
@@ -370,24 +381,22 @@ class TabHandEye():
         # create a single camera calib table
         '''
         use quaternion and position to represent rotation and translation
-        |id integer|filename text|isreject bool|point_id integer|px float|py float|qw float |qx float  |qy float  |qz float  |tx float|ty float| tz float|
-        |----------|-------------|-------------|----------------|--------|--------|---------|----------|----------|----------|--------|--------|---------|
-        |    0     |    img1.png |  False      |    0           |22.745  |65.478  |0.1085443|-0.2130855|-0.9618053|-0.1332042| -44.071| 272.898|-1388.602|
+        |id integer|filename text|isreject bool|qw float |qx float  |qy float  |qz float  |tx float|ty float| tz float| cors blob|
+        |----------|-------------|-------------|---------|----------|----------|----------|--------|--------|---------|----------|
+        |    0     |    img1.png |  False      |0.1085443|-0.2130855|-0.9618053|-0.1332042| -44.071| 272.898|-1388.602|byte array|
         '''
         TABLE_SQL_STR = '''id INTEGER PRIMARY KEY AUTOINCREMENT, 
                             rootpath text,
                             filename text, 
-                            isreject bool, 
-                            point_id integer, 
-                            px float, 
-                            py float, 
+                            isreject bool,  
                             qw float, 
                             qx float, 
                             qy float, 
                             qz float, 
                             tx float, 
                             ty float, 
-                            tz float'''
+                            tz float,
+                            cors blob'''
         self.DB_FILENAME = ':memory:'
         self.DB_TABLENAME = 'handeye'
         db = LocalStorage(self.DB_FILENAME)
@@ -411,8 +420,12 @@ class TabHandEye():
                 col = int(self.m_textctrl_cb_col.GetValue())
                 cellsize = float(self.m_textctrl_cb_cellsize.GetValue())
                 calib_instance = CalibChessboard(row, col, cellsize, use_libcbdet=self.m_checkbox_use_libcbdetect.GetValue())
-                _, cors = calib_instance.find_corners(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY))
-                calib_instance.draw_corners(img, cors)
+                # _, cors = calib_instance.find_corners(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY))
+                results = self.db.retrive_data(self.DB_TABLENAME, 'isreject, cors', f'WHERE filename=\'{fname}\' ')
+                if results[0][0] == 0:
+                    _cors = results[0][1]
+                    cors = pickle.loads(_cors)
+                    calib_instance.draw_corners(img, cors)
             img_w = img.shape[1]
             img_h = img.shape[0]
             SCALE_RATIO = img_w/HE_IMAGE_VIEW_W
@@ -464,6 +477,21 @@ class TabHandEye():
             if dlg.ShowModal() == wx.ID_OK:
                 self.B_path = dlg.GetPath()
                 self.m_textctrl_load_b_path.SetLabel(self.B_path)
+                # delete old record
+                self.db.delete_data(self.DB_TABLENAME, f'WHERE 1=1')
+                # list all images in the dir
+                images = self._list_images_with_suffix(self.B_path)
+                if len(images)>0:
+                    count = 0
+                    for item in images:
+                        count += 1
+                        self.db.write_data(
+                            self.DB_TABLENAME,
+                            f'null, \'{self.B_path}\', \'{item}\', 0, null,  null, null, null, null, null, null, null')
+                else:
+                    wx.MessageBox(
+                        "标定板图像路径下无图像文件",
+                        "错误", wx.OK | wx.ICON_ERROR)
                 self.update_treectrl()
 
         # 设置按钮状态
@@ -480,21 +508,46 @@ class TabHandEye():
             style=wx.PD_APP_MODAL | wx.PD_AUTO_HIDE
         )
         dlg.Update(1, "开始计算")
+        results = self.db.retrive_data(
+            self.DB_TABLENAME, f'rootpath, filename', '')
+        images = [f[1] for f in results]
         thread = threading.Thread(
-            target=self._run_handeye_calibration_task, args=(dlg,))
+            target=self._run_handeye_calibration_task, args=(dlg, images))
         thread.start()
 
-    def _run_handeye_calibration_task(self, dlg):
+    def _run_handeye_calibration_task(self, dlg, images):
         if self.m_radioBox_calib_type.GetSelection() == 0:
-            ret, r_c2g, t_c2g, r_e, t_e = self.do_axxb_calib()
+            ret, r_c2g, t_c2g, r_e, t_e, results = self.do_axxb_calib(images)
             wx.CallAfter(self._handeye_calibration_task_done,
-                         dlg, (ret, r_c2g, t_c2g, r_e, t_e))
+                         dlg, (ret, r_c2g, t_c2g, r_e, t_e, results))
         else:
             self.do_axzb_calib()
-            wx.CallAfter(self._handeye_calibration_task_done, dlg, (0, 0))
+            wx.CallAfter(self._handeye_calibration_task_done, dlg, (0, 0, 0, 0, 0, 0))
 
     def _handeye_calibration_task_done(self, dlg, data):
+        ret, r_c2g, t_c2g, r_e, t_e, results = data
         if self.m_radioBox_calib_type.GetSelection() == 0:
+            # 保存reject标识
+            iresults = self.db.retrive_data(self.DB_TABLENAME, f'rootpath, filename', '')
+            images = [f[1] for f in iresults]
+            rej_list = []
+            cal_list = []
+            for f in zip(images, results):
+                if f[1][2] is True:
+                    rej_list.append(f[0])
+                else:
+                    cal_list.append(f)
+            self._set_rejected_flags(rej_list)
+            
+            # 保存rt & cors到非reject数据
+            rvecs = [r[1][0] for r in cal_list]
+            tvecs = [t[1][1] for t in cal_list]
+            flist = [f[0] for f in cal_list]
+            pts = [p[1][3] for p in cal_list]
+            self._save_each_image_rt_cors(rvecs, tvecs, flist, pts)
+            # update tree
+            self.update_treectrl(True)
+
             if data[0] is not CalibErrType.CAL_OK:
                 dlg.Destroy()
                 wx.MessageBox(f"标定失败:{CalibErrType.to_string(data[0])}","提示",wx.OK | wx.ICON_ERROR)
@@ -502,13 +555,14 @@ class TabHandEye():
                 self.m_btn_save.Enable(False)
                 return 
             # axxb
-            ret, r_c2g, t_c2g, r_e, t_e = data
+            
             self.r_error = float(r_e)
             self.t_error = float(t_e)
             self.X = combine_RT(r_c2g, float(
                 t_c2g[0]), float(t_c2g[1]), float(t_c2g[2]))
             result_string = f'AXXB Calibration Result:\n\n Rotation:\n {np.array2string(r_c2g)} \n\n Translation:\n {np.array2string(t_c2g)} \n\n Rotation err: {r_e} (degree) \n Translation err: {t_e} (mm)'
             self.m_statictext_calib_err_result.SetLabel(result_string)
+
             # axzb
         else:
             self.m_statictext_calib_err_result.SetLabel('')
@@ -516,7 +570,7 @@ class TabHandEye():
         dlg.Update(3, "done")
         self.m_btn_save.Enable()
 
-    def do_axxb_calib(self):
+    def do_axxb_calib(self, images):
         a_p = self.m_textctrl_load_a_path.GetValue()
         b_p = self.m_textctrl_load_b_path.GetValue()
         c_p = self.m_textctrl_cam_param_path.GetValue()
@@ -536,7 +590,10 @@ class TabHandEye():
         mtx, dist = load_camera_param(
             c_p, self.m_checkbox_cb_transflag.IsChecked())
         # 计算图像外参
-        images = self._list_images_with_suffix(b_p)
+        # images = self._list_images_with_suffix(b_p)
+        # results = self.db.retrive_data(
+        #     self.DB_TABLENAME, f'rootpath, filename', '')
+        # images = [f[1] for f in results]
         # check if A's size match B's size
         # TODO
         R_b2c = []
@@ -544,8 +601,8 @@ class TabHandEye():
         # test map
         results = cb.calculate_img_rt_parallel(b_p, images, mtx, dist)
         # 判断results里面是否包含(None, None)
-        if any(all(item is None for item in tup) for tup in results):
-            return None, None, None, None
+        if any(any(item is None for item in tup) for tup in results):
+            return CalibErrType.CAL_DATA_SIZE_NOT_MATCH, None, None, None, None, results
 
         for idx in range(len(images)):
             R = results[idx][0]
@@ -558,11 +615,11 @@ class TabHandEye():
         method_id = self.he_calib_method_map[method_str]
         if len(r_g2n) != len(R_b2c):
             logger.warning("g2n size not match b2c")
-            return  CalibErrType.CAL_DATA_SIZE_NOT_MATCH, None, None, None, None
+            return  CalibErrType.CAL_DATA_SIZE_NOT_MATCH, None, None, None, None, results
 
         r_c2g, t_c2g, r_e, t_e = he.calib_axxb(
             r_g2n, t_g2n, R_b2c, t_b2c, method_id)
-        return CalibErrType.CAL_OK, r_c2g, t_c2g, r_e, t_e
+        return CalibErrType.CAL_OK, r_c2g, t_c2g, r_e, t_e, results
 
     def do_axzb_calib(self):
         pass
@@ -585,3 +642,27 @@ class TabHandEye():
         else:
             self.m_radioBox_axxb_calib_method.Enable(False)
             self.m_radioBox_axzb_calib_method.Enable()
+
+    def _set_rejected_flags(self, filelist):
+        for f in filelist:
+            self.db.modify_data(self.DB_TABLENAME,
+                                f'SET isreject=1 WHERE filename=\'{f}\' ')
+
+    def _save_each_image_rt_cors(self, rvecs, tvecs, filelist, pts):
+        if len(rvecs) == len(filelist):
+            for f, R, tv, _pts in zip(filelist, rvecs, tvecs, pts):
+                #R, _ = cv2.Rodrigues(rv)
+                q = rot_2_quat(R)
+                cors_bytes = pickle.dumps(_pts)
+                self.db.modify_data(self.DB_TABLENAME, f'''SET isreject=0, 
+                                                        qw={float(q[0])},
+                                                        qx={float(q[1])},
+                                                        qy={float(q[2])},
+                                                        qz={float(q[3])},
+                                                        tx={float(tv[0])},
+                                                        ty={float(tv[1])},
+                                                        tz={float(tv[2])},
+                                                        cors=? 
+                                                        WHERE filename=\'{f}\' ''', (cors_bytes,))
+        else:
+            logger.debug(f"please check the file list")

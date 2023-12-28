@@ -199,8 +199,7 @@ class TabStereoCam():
                             tz float,
                             rpje float,
                             cors blob'''
-        #self.DB_FILENAME = ':memory:'
-        self.DB_FILENAME = 'stereo.db'
+        self.DB_FILENAME = ':memory:'
         self.DB_TABLENAME = 'stereo'
         db = LocalStorage(self.DB_FILENAME)
         ret = db.create_table(self.DB_TABLENAME, TABLE_SQL_STR)
@@ -425,7 +424,7 @@ class TabStereoCam():
         lfilelist = [f[2] for f in left_file_list]
         rfilelist = [f[2] for f in right_file_list]
 
-        calib = CalibChessboard(row, col, cellsize, use_mt=False, use_libcbdet=self.m_checkbox_use_libcbdetect.GetValue())
+        calib = CalibChessboard(row, col, cellsize, use_libcbdet=self.m_checkbox_use_libcbdetect.GetValue())
         CALIB = calib.stereo_calib_parallel if calib.USE_MT is True else calib.stereo_calib
 
         ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rej_list, calib_list, shape, lpts, rpts, err = CALIB(

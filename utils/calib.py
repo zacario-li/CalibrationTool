@@ -525,7 +525,7 @@ class CalibChessboard():
     def calculate_img_rt(self, grayimg, cameraMatrix, distCoeffs, vis=False):
         _, cors = self.find_corners(grayimg)
         if _ is not True:
-            return None, None
+            return None, None, None
 
         ret, rvecs, tvecs, inliers = cv2.solvePnPRansac(
             self.objp, cors.reshape(-1, 2), cameraMatrix, distCoeffs)
@@ -542,17 +542,17 @@ class CalibChessboard():
 
         R, _ = cv2.Rodrigues(rvecs)
 
-        return R, tvecs
+        return R, tvecs, cors
 
     def calculate_img_rt_mono(self, args):
         rej_flag = False
         root, filename, mtx, dist = args
         img = cv2.imread(os.path.join(root, filename), 0)
-        R, tvecs = self.calculate_img_rt(img, mtx, dist)
+        R, tvecs, cors = self.calculate_img_rt(img, mtx, dist)
         # 记录无法检测角点的文件名
         if R is None:
             rej_flag = True
-        return (R, tvecs, rej_flag)
+        return (R, tvecs, rej_flag, cors)
 
     # 多线程计算棋盘格R,T
     @timer_decorator
@@ -606,7 +606,7 @@ class CalibChessboard():
         rimg = cv2.imread(os.path.join(rrootpath, rfname), 0)
         lret, lcors = self.find_corners(limg)
         rret, rcors = self.find_corners(rimg)
-        if lret is not True and rret is not True:
+        if lret is not True or rret is not True:
             return (lfname, rfname, None, None, 'rejected')
         else:
             return (lfname, rfname, lcors, rcors, 'calibrated')
@@ -617,5 +617,5 @@ if __name__ == "__main__":
     mtx, dist = load_camera_param('stereoParam12x9.json')
     gray_img = cv2.imread(
         'C:/Users/lzj/Desktop/1013/eyeHand20231013/20231013094245L.png', 0)
-    R, tvecs = cb.calculate_img_rt(gray_img, mtx, dist)
+    R, tvecs, cors = cb.calculate_img_rt(gray_img, mtx, dist)
     pass
