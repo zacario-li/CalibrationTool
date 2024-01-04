@@ -416,12 +416,12 @@ class TabHandEye():
             img = cv2.imread(fullname)
             # draw corners
             #if self.m_btn_calib.IsEnabled():
-            row = int(self.m_textctrl_cb_row.GetValue())
-            col = int(self.m_textctrl_cb_col.GetValue())
             results = self.db.retrive_data(self.DB_TABLENAME, 'isreject, cors', f'WHERE filename=\'{fname}\' ')
             if results[0][0] == 0:
                 _cors = results[0][1]
                 if _cors is not None:
+                    row = int(self.m_textctrl_cb_row.GetValue())
+                    col = int(self.m_textctrl_cb_col.GetValue())
                     cellsize = float(self.m_textctrl_cb_cellsize.GetValue())
                     calib_instance = CalibChessboard(row, col, cellsize, use_libcbdet=self.m_checkbox_use_libcbdetect.GetValue())
                     cors = pickle.loads(_cors)
