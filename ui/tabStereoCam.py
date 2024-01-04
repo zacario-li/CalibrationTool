@@ -288,10 +288,6 @@ class TabStereoCam():
                 cellsize = int(self.current_cellsize)
                 calib_instance = CalibChessboard(row, col, cellsize, self.m_checkbox_use_libcbdetect.GetValue())
                 # retrive db's cors
-                # _, lcors = calib_instance.find_corners(
-                #     cv2.cvtColor(limage_data, cv2.COLOR_BGR2GRAY))
-                # _, rcors = calib_instance.find_corners(
-                #     cv2.cvtColor(rimage_data, cv2.COLOR_BGR2GRAY))
                 lresult = self.db.retrive_data(self.DB_TABLENAME, "cors", f'WHERE filename=\'{fnames[0]}\' AND cameraid=0')
                 _lcors = [c[0] for c in lresult]
                 lcors = pickle.loads(_lcors[0])

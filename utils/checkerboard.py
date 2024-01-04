@@ -86,10 +86,10 @@ def detect_corners_template(gray, template, mode='same'):
 
 
 TPROPS = [[0, pi/2], [pi/4, -pi/4],
-          # [0, pi/4], [0, -pi/4],
-          [pi/4, pi/2], [-pi/4, pi/2]]
-          # [-3*pi/8, 3*pi/8], [-pi/8, pi/8],
-          # [-pi/8, -3*pi/8], [pi/8, 3*pi/8]]
+          [0, pi/4], [0, -pi/4],
+          [pi/4, pi/2], [-pi/4, pi/2],
+          [-3*pi/8, 3*pi/8], [-pi/8, pi/8],
+          [-pi/8, -3*pi/8], [pi/8, 3*pi/8]]
 # TPROPS = [[0, pi/2], [0, -pi/4], [0, pi/4]]
 RADIUS = [6, 8, 10]
 
