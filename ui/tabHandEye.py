@@ -580,6 +580,7 @@ class TabHandEye():
         # ax=xb
         he = HandEye()
         cb = CalibChessboard(row_p, col_p, cell_p, use_libcbdet=self.m_checkbox_use_libcbdetect.GetValue())
+
         # 读取传感器rt(NDI/IMU etc.)
         if self.m_checkbox_cb_rvecflag.IsChecked():
             r_g2n, t_g2n = he.generate_gripper2base_with_rvec_txt(a_p)
@@ -599,7 +600,10 @@ class TabHandEye():
         R_b2c = []
         t_b2c = []
         # test map
-        results = cb.calculate_img_rt_parallel(b_p, images, mtx, dist)
+        if cb.USE_MT is True:
+            results = cb.calculate_img_rt_parallel(b_p, images, mtx, dist)
+        else:
+            results = [cb.calculate_img_rt_mono((b_p, fname, mtx, dist)) for fname in images]
         # 判断results里面是否包含(None, None)
         if any(any(item is None for item in tup) for tup in results):
             return CalibErrType.CAL_DATA_SIZE_NOT_MATCH, None, None, None, None, results
