@@ -34,6 +34,17 @@ def timer_decorator(func):
         return result
     return wrapper
 
+def load_handeye_param(filename:str):
+    with open(filename) as f:
+        jstr = json.load(f)
+    
+    if 'AXXB' in jstr:
+        ELEMENT_NAME = 'AXXB'
+    else:
+        ELEMENT_NAME = 'AXZB'
+    
+    he = jstr[f'{ELEMENT_NAME}']['Matrix']
+    return np.array(he)
 
 def load_camera_param(filename: str, need_trans=False):
     # load parameters
@@ -515,8 +526,9 @@ class CalibChessboard():
             ret, sub_corners = cv2.findChessboardCornersSB(
                 grayimg, (self.ROW_COR, self.COL_COR), cv2.CALIB_CB_NORMALIZE_IMAGE | cv2.CALIB_CB_EXHAUSTIVE | cv2.CALIB_CB_ACCURACY | cv2.CALIB_CB_MARKER)
             if ret is True:
-                sub_corners = cv2.cornerSubPix(
-                    grayimg, sub_corners, (19, 19), (-1, -1), self.criteria)
+                # remove cornerSubPix call due to findChessboardCornersSB already included the subpix
+                # sub_corners = cv2.cornerSubPix(
+                #     grayimg, sub_corners, (19, 19), (-1, -1), self.criteria)
                 return ret, sub_corners
             else:
                 return ret, None
