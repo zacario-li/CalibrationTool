@@ -83,7 +83,7 @@ class TabStereoCam():
             self.m_textctl_right_path, 0, wx.EXPAND)
 
         self.m_btn_load_files = wx.Button(
-            self.tab, wx.ID_ANY, u"Select folder & Set parameters", wx.DefaultPosition, wx.DefaultSize, 0)
+            self.tab, wx.ID_ANY, u"Select folder and Set parameters", wx.DefaultPosition, wx.DefaultSize, 0)
         m_layout_path_load.Add(self.m_btn_load_files, 1, wx.EXPAND, border=5)
         return m_layout_path_load
 
