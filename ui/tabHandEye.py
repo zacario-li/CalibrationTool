@@ -116,7 +116,7 @@ class TabHandEye():
             self.m_textctrl_load_a_path, 10, wx.ALL, 1)
         self.m_textctrl_load_a_path.Enable(False)
 
-        self.m_checkbox_cb_rvecflag = wx.CheckBox(self.tab, wx.ID_ANY, label="旋转向量")
+        self.m_checkbox_cb_rvecflag = wx.CheckBox(self.tab, wx.ID_ANY, label="Rotation Vector")
         m_layout_he_dataloader_A.Add(self.m_checkbox_cb_rvecflag,0,wx.ALIGN_CENTER_VERTICAL|wx.ALL, 1)
 
         self.m_btn_loadA = wx.Button(
@@ -150,7 +150,7 @@ class TabHandEye():
         self.m_textctrl_cam_param_path.Enable(False)
 
         self.m_checkbox_cb_transflag = wx.CheckBox(
-            self.tab, wx.ID_ANY, label="需要转置")
+            self.tab, wx.ID_ANY, label="Need Transpose")
         m_layout_he_dataloader_param.Add(
             self.m_checkbox_cb_transflag, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 1)
         self.m_btn_load_cam_param = wx.Button(
@@ -189,7 +189,7 @@ class TabHandEye():
         m_layout_he_cb_param.Add(layout_icon,0,wx.ALIGN_CENTER|wx.ALL, 5)
 
         self.m_statictext_cb_row = wx.StaticText(
-            self.tab, wx.ID_ANY, u"标定板行数", wx.DefaultPosition, wx.DefaultSize, 0
+            self.tab, wx.ID_ANY, u"Number of Rows", wx.DefaultPosition, wx.DefaultSize, 0
         )
         m_layout_he_cb_param.Add(
             self.m_statictext_cb_row, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 5
@@ -202,7 +202,7 @@ class TabHandEye():
         )
 
         self.m_statictext_cb_col = wx.StaticText(
-            self.tab, wx.ID_ANY, u"标定板列数", wx.DefaultPosition, wx.DefaultSize, 0
+            self.tab, wx.ID_ANY, u"Number of Cols", wx.DefaultPosition, wx.DefaultSize, 0
         )
         m_layout_he_cb_param.Add(
             self.m_statictext_cb_col, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 5)
@@ -213,7 +213,7 @@ class TabHandEye():
             self.m_textctrl_cb_col, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 5)
 
         self.m_statictext_cb_cellsize = wx.StaticText(
-            self.tab, wx.ID_ANY, u"标定板单元格边长(mm)", wx.DefaultPosition, wx.DefaultSize, 0
+            self.tab, wx.ID_ANY, u"Checkerboard Cell Size(mm)", wx.DefaultPosition, wx.DefaultSize, 0
         )
         m_layout_he_cb_param.Add(
             self.m_statictext_cb_cellsize, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 5
@@ -227,7 +227,7 @@ class TabHandEye():
 
         # use libcbdetect
         self.m_checkbox_use_libcbdetect = wx.CheckBox(
-            self.tab, wx.ID_ANY, u"使用libcbdetect", wx.DefaultPosition, wx.DefaultSize, 0)
+            self.tab, wx.ID_ANY, u"Use Libcbdetect", wx.DefaultPosition, wx.DefaultSize, 0)
         m_layout_he_cb_param.Add(self.m_checkbox_use_libcbdetect, 0, wx.ALIGN_CENTER_VERTICAL, 0)
 
         return m_layout_he_cb_param
@@ -332,7 +332,7 @@ class TabHandEye():
         filelist = [f[1] for f in results]
         rej_flag = [r[2] for r in results]
 
-        dirroot = tree.AddRoot('文件名', image=0)
+        dirroot = tree.AddRoot('filename', image=0)
         if len(filelist) > 0:
             for fname, rf in zip(filelist, rej_flag):
                 newItem = tree.AppendItem(
@@ -451,7 +451,7 @@ class TabHandEye():
             wildcard_str = "*.json"
         dlg = None
         if src_btn_id == A_id or src_btn_id == Cam_id:
-            dlg = wx.FileDialog(self.tab, "选择文件", wildcard=wildcard_str)
+            dlg = wx.FileDialog(self.tab, "Select file", wildcard=wildcard_str)
             if dlg.ShowModal() == wx.ID_OK:
                 filepath = dlg.GetPath()
                 if src_btn_id == A_id:
@@ -467,12 +467,13 @@ class TabHandEye():
                     else:
                         # load err, create a msg box to warn user
                         wx.MessageBox(
-                            "加载相机参数失败，请检查相机参数文件是否正确",
-                            "错误", wx.OK | wx.ICON_ERROR)
+                            #"加载相机参数失败，请检查相机参数文件是否正确",
+                            "Failed to load camera parameters, please check if the camera parameter file is correct",
+                            "Error", wx.OK | wx.ICON_ERROR)
                         self.m_textctrl_cam_param_path.SetLabel("")
                         self.cam_param_path = None
         else:
-            dlg = wx.DirDialog(self.tab, "选择标定板图像路径",
+            dlg = wx.DirDialog(self.tab, "Select calibration board image path",
                                style=wx.DD_DEFAULT_STYLE | wx.DD_NEW_DIR_BUTTON)
             if dlg.ShowModal() == wx.ID_OK:
                 self.B_path = dlg.GetPath()
@@ -490,8 +491,8 @@ class TabHandEye():
                             f'null, \'{self.B_path}\', \'{item}\', 0, null,  null, null, null, null, null, null, null')
                 else:
                     wx.MessageBox(
-                        "标定板图像路径下无图像文件",
-                        "错误", wx.OK | wx.ICON_ERROR)
+                        "No image files found in the calibration board image path",
+                        "Error", wx.OK | wx.ICON_ERROR)
                 self.update_treectrl()
 
         # 设置按钮状态
@@ -501,13 +502,13 @@ class TabHandEye():
 
     def on_click_calibrate(self, evt):
         dlg = wx.ProgressDialog(
-            "手眼标定",
-            "正在标定...",
+            "Handeye calibration",
+            "Calibrating ...",
             maximum=3,
             parent=self.tab,
             style=wx.PD_APP_MODAL | wx.PD_AUTO_HIDE
         )
-        dlg.Update(1, "开始计算")
+        dlg.Update(1, "Calculating ...")
         results = self.db.retrive_data(
             self.DB_TABLENAME, f'rootpath, filename', '')
         images = [f[1] for f in results]
@@ -550,7 +551,7 @@ class TabHandEye():
 
             if data[0] is not CalibErrType.CAL_OK:
                 dlg.Destroy()
-                wx.MessageBox(f"标定失败:{CalibErrType.to_string(data[0])}","提示",wx.OK | wx.ICON_ERROR)
+                wx.MessageBox(f"Calibration failed:{CalibErrType.to_string(data[0])}","Notice",wx.OK | wx.ICON_ERROR)
                 self.m_statictext_calib_err_result.SetLabel(f"ERROR: {CalibErrType.to_string(data[0])}")
                 self.m_btn_save.Enable(False)
                 return 
@@ -629,7 +630,7 @@ class TabHandEye():
         pass
 
     def on_save_calibration_results(self, evt):
-        dlg = wx.FileDialog(self.tab, u"保存标定结果", wildcard='*.json',
+        dlg = wx.FileDialog(self.tab, u"Save result", wildcard='*.json',
                             defaultFile='handeye_parameters', style=wx.FD_SAVE)
         if dlg.ShowModal() == wx.ID_OK:
             path = dlg.GetPath()

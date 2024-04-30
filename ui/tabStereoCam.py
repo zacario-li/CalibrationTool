@@ -83,7 +83,7 @@ class TabStereoCam():
             self.m_textctl_right_path, 0, wx.EXPAND)
 
         self.m_btn_load_files = wx.Button(
-            self.tab, wx.ID_ANY, u"选择文件夹&&设置参数", wx.DefaultPosition, wx.DefaultSize, 0)
+            self.tab, wx.ID_ANY, u"Select folder & Set parameters", wx.DefaultPosition, wx.DefaultSize, 0)
         m_layout_path_load.Add(self.m_btn_load_files, 1, wx.EXPAND, border=5)
         return m_layout_path_load
 
@@ -97,23 +97,23 @@ class TabStereoCam():
             self.m_statictext_warning, 12, wx.EXPAND, 5)
 
         self.m_btn_calibrate = wx.Button(
-            self.tab, wx.ID_ANY, u"开始标定", wx.DefaultPosition, wx.DefaultSize, 0)
+            self.tab, wx.ID_ANY, u"Calib", wx.DefaultPosition, wx.DefaultSize, 0)
         self.m_btn_calibrate.Enable(False)
         m_layout_actions_btns.Add(
             self.m_btn_calibrate, 1, wx.EXPAND, 5)
 
         self.m_btn_save_calibration = wx.Button(
-            self.tab, wx.ID_ANY, u"保存标定结果", wx.DefaultPosition, wx.DefaultSize, 0)
+            self.tab, wx.ID_ANY, u"Save result", wx.DefaultPosition, wx.DefaultSize, 0)
         self.m_btn_save_calibration.Enable(False)
         m_layout_actions_btns.Add(
             self.m_btn_save_calibration, 1, wx.EXPAND, 5)
 
-        self.m_btn_show_pts_dist = wx.Button(self.tab, wx.ID_ANY, u"显示棋盘格分布", wx.DefaultPosition, wx.DefaultSize, 0)
+        self.m_btn_show_pts_dist = wx.Button(self.tab, wx.ID_ANY, u"Show Corner distribution", wx.DefaultPosition, wx.DefaultSize, 0)
         self.m_btn_show_pts_dist.Enable(False)
         m_layout_actions_btns.Add(self.m_btn_show_pts_dist, 1, wx.EXPAND, 5)
 
         # add use libcbdetect
-        self.m_checkbox_use_libcbdetect = wx.CheckBox(self.tab, wx.ID_ANY, u"使用libcbdetect")
+        self.m_checkbox_use_libcbdetect = wx.CheckBox(self.tab, wx.ID_ANY, u"Use Libcbdetect")
         m_layout_actions_btns.Add(self.m_checkbox_use_libcbdetect, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 0)
         return m_layout_actions_btns
 
@@ -252,7 +252,7 @@ class TabStereoCam():
             right_max_err = None
         max_high_count = 0
 
-        dirroot = tree.AddRoot('文件名:(左/右重投影误差)', image=0)
+        dirroot = tree.AddRoot('Filename: (Left/Right Reprojection Error)', image=0)
         if len(left_filelist) > 0:
             for lfname, lr, rfname, rr in zip(left_filelist, left_rpjes, right_filelist, right_rpjes):
                 newItem = tree.AppendItem(
@@ -321,7 +321,7 @@ class TabStereoCam():
         if rootid != item:
             lfname, rfname = self.m_treectrl.GetItemData(item)
             menu = wx.Menu()
-            itm = menu.Append(wx.ID_ANY, "删除并重新标定")
+            itm = menu.Append(wx.ID_ANY, "Delete and Recalibrate")
             self._temp_right_menu_data = [lfname, rfname]
             self.tab.Bind(wx.EVT_MENU, self.on_recalib, itm)
             self.m_treectrl.PopupMenu(menu, evt.GetPoint())
@@ -347,19 +347,19 @@ class TabStereoCam():
         sqlresult = self.db.retrive_data(
             self.DB_TABLENAME, f'rootpath, cameraid, filename', f'WHERE isreject=0')
         dlg = wx.ProgressDialog(
-            "标定",
-            "正在标定...",
+            "Calibration",
+            "Calibrating ...",
             maximum=3,
             parent=self.tab,
             style=wx.PD_APP_MODAL | wx.PD_AUTO_HIDE
         )
-        dlg.Update(1, "开始计算")
+        dlg.Update(1, "Calculating")
         thread = threading.Thread(target=self._run_camera_calibration_task,
                                   args=(dlg, sqlresult))
         thread.start()
 
     def on_save_calibration_results(self, evt):
-        dlg = wx.FileDialog(self.tab, u"保存标定结果", wildcard='*.json',
+        dlg = wx.FileDialog(self.tab, u"Save result", wildcard='*.json',
                             defaultFile='camera_parameters', style=wx.FD_SAVE)
         if dlg.ShowModal() == wx.ID_OK:
             path = dlg.GetPath()
@@ -370,7 +370,7 @@ class TabStereoCam():
         dlg.Destroy()
 
     def on_show_pts_dist(self, evt):
-        dpanel = DetailsImagePanel(self.tab.GetParent().GetParent(), "拍摄角点分布")
+        dpanel = DetailsImagePanel(self.tab.GetParent().GetParent(), "Corner distribution")
         dpanel.commit_cvdata(self.stereocheck)
         dpanel.Show()
         self.tab.GetParent().GetParent().Disable()
@@ -428,7 +428,7 @@ class TabStereoCam():
 
         # 检查ret是否为false
         if ret is False:
-            dlg.Update(2, "标定失败")
+            dlg.Update(2, "Calibration Failed")
             wx.CallAfter(self._camera_calibration_task_done, dlg, (ret, mtx_l0, dist_l0,
                      mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rej_list, calib_list, err, None, None))
             return
@@ -451,11 +451,11 @@ class TabStereoCam():
                      mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rej_list, calib_list, err, lpts, rpts))
 
     def _camera_calibration_task_done(self, dlg, data: tuple):
-        dlg.Update(2, "计算结束")
+        dlg.Update(2, "Finished")
         if data[0] is False:
             dlg.Destroy()
             wx.Sleep(1)
-            wx.MessageBox(f"标定失败:{CalibErrType.to_string(data[14])}", "警告", wx.OK | wx.ICON_ERROR)
+            wx.MessageBox(f"Calibraion failed :{CalibErrType.to_string(data[14])}", "Warning", wx.OK | wx.ICON_ERROR)
             self.m_btn_save_calibration.Enable(False)
             self.m_btn_show_pts_dist.Enable(False)
             return 
@@ -477,7 +477,7 @@ class TabStereoCam():
         errtype = data[14]
         lpts = data[15]
         rpts = data[16]
-        dlg.Update(3, "保存标定结果到数据库...")
+        dlg.Update(3, "Save calibration results to the database ...")
         self._set_rejected_flags(rej_list)
         self._save_each_image_rt_rpje((rvecs, tvecs, pererr, calib_list, lpts, rpts))
         dlg.Destroy()
@@ -544,7 +544,7 @@ class TabStereoCam():
 
 class StereoFileLoader(wx.Dialog):
     def __init__(self, parent, pp):
-        wx.Dialog.__init__(self, parent, title='标定图像数据设置',
+        wx.Dialog.__init__(self, parent, title='Calibration Image Data Settings',
                            size=wx.Size(650, 200))
         self.SetMinSize(self.GetSize())
         self.SetMaxSize(self.GetSize())
@@ -569,7 +569,7 @@ class StereoFileLoader(wx.Dialog):
             self, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0)
         self.m_textctl_left_path.Enable(False)
         self.m_btn_left = wx.Button(
-            self, wx.ID_ANY, u'选择左相机图片', wx.DefaultPosition, wx.DefaultSize, 0)
+            self, wx.ID_ANY, u'Left camera', wx.DefaultPosition, wx.DefaultSize, 0)
         self.m_layout_left_file.Add(self.m_textctl_left_path, 5, wx.EXPAND, 5)
         self.m_layout_left_file.Add(self.m_btn_left, 0, wx.EXPAND, 5)
 
@@ -585,7 +585,7 @@ class StereoFileLoader(wx.Dialog):
             self, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0)
         self.m_textctl_right_path.Enable(False)
         self.m_btn_right = wx.Button(
-            self, wx.ID_ANY, u'选择右相机图片', wx.DefaultPosition, wx.DefaultSize, 0)
+            self, wx.ID_ANY, u'Right camera', wx.DefaultPosition, wx.DefaultSize, 0)
         self.m_layout_right_file.Add(
             self.m_textctl_right_path, 5, wx.EXPAND, 5)
         self.m_layout_right_file.Add(self.m_btn_right, 0, wx.EXPAND, 5)
@@ -600,7 +600,7 @@ class StereoFileLoader(wx.Dialog):
         self.m_layout_dlg_main.Add(self.m_layout_pattern_parameter)
 
         self.m_staticText_row = wx.StaticText(
-            self, wx.ID_ANY, u"标定板行数", wx.DefaultPosition, wx.DefaultSize, 0)
+            self, wx.ID_ANY, u"Number of rows", wx.DefaultPosition, wx.DefaultSize, 0)
         self.m_staticText_row.Wrap(-1)
 
         self.m_layout_pattern_parameter.Add(
@@ -612,7 +612,7 @@ class StereoFileLoader(wx.Dialog):
             self.m_textCtrl_row, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 5)
 
         self.m_staticText_col = wx.StaticText(
-            self, wx.ID_ANY, u"标定板列数", wx.DefaultPosition, wx.DefaultSize, 0)
+            self, wx.ID_ANY, u"Number of cols", wx.DefaultPosition, wx.DefaultSize, 0)
         self.m_staticText_col.Wrap(-1)
 
         self.m_layout_pattern_parameter.Add(
@@ -624,7 +624,7 @@ class StereoFileLoader(wx.Dialog):
             self.m_textCtrl_col, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 5)
 
         self.m_staticText_cellsize = wx.StaticText(
-            self, wx.ID_ANY, u"标定板单元格边长(mm)", wx.DefaultPosition, wx.DefaultSize, 0)
+            self, wx.ID_ANY, u"Board cell size(mm)", wx.DefaultPosition, wx.DefaultSize, 0)
         self.m_staticText_cellsize.Wrap(-1)
 
         self.m_layout_pattern_parameter.Add(
@@ -655,7 +655,7 @@ class StereoFileLoader(wx.Dialog):
         source_btn_id = evt.GetId()
 
         dir_dialog = wx.DirDialog(
-            None, "选择校准图像路径", style=wx.DD_DEFAULT_STYLE | wx.DD_NEW_DIR_BUTTON)
+            None, "Select calibration board image path", style=wx.DD_DEFAULT_STYLE | wx.DD_NEW_DIR_BUTTON)
         if dir_dialog.ShowModal() == wx.ID_OK:
             if source_btn_id == self.m_btn_left.GetId():
                 self.temp_lpath = dir_dialog.GetPath()
@@ -687,8 +687,8 @@ class StereoFileLoader(wx.Dialog):
         # progress
         count = 0
         max_value = len(self.pp.current_leftfile_list)
-        dlg = wx.ProgressDialog("加载图像",
-                                "图片加载中，请稍后",
+        dlg = wx.ProgressDialog("Loading Images",
+                                "Loading, please wait",
                                 maximum=max_value,
                                 parent=self,
                                 style=wx.PD_APP_MODAL | wx.PD_AUTO_HIDE)

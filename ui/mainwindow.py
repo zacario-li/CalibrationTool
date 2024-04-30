@@ -21,9 +21,9 @@ class MainWindow(wx.Frame):
         tabstereo = wx.Panel(self.notebook)
         tabhandeye = wx.Panel(self.notebook)
 
-        self.notebook.AddPage(tabsingle, '单目相机')
-        self.notebook.AddPage(tabstereo, '双目相机')
-        self.notebook.AddPage(tabhandeye, '手眼标定')
+        self.notebook.AddPage(tabsingle, 'Mono Camera')
+        self.notebook.AddPage(tabstereo, 'Stereo Camera')
+        self.notebook.AddPage(tabhandeye, 'HandEye')
 
         # init tabs
         self.tsinglecam = TabSingleCam(self, tabsingle)

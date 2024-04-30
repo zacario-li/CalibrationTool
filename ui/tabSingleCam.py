@@ -60,7 +60,7 @@ class TabSingleCam():
             self.m_textCtrl_file_path, 5, wx.ALIGN_CENTER_HORIZONTAL | wx.ALIGN_CENTER_VERTICAL | wx.ALL, 5)
 
         self.m_select_file_path = wx.Button(
-            self.tab, wx.ID_ANY, u"选择文件夹", wx.DefaultPosition, wx.DefaultSize, 0)
+            self.tab, wx.ID_ANY, u"Select folder", wx.DefaultPosition, wx.DefaultSize, 0)
         self.path_h_sizer.Add(self.m_select_file_path, 1,
                               wx.ALIGN_CENTER_HORIZONTAL | wx.ALIGN_CENTER_VERTICAL | wx.ALL, 5)
 
@@ -72,7 +72,7 @@ class TabSingleCam():
         '''
         pattern_border = 1
         self.m_staticText_row = wx.StaticText(
-            self.tab, wx.ID_ANY, u"标定板行数", wx.DefaultPosition, wx.DefaultSize, 0)
+            self.tab, wx.ID_ANY, u"Number of Rows", wx.DefaultPosition, wx.DefaultSize, 0)
         self.m_staticText_row.Wrap(-1)
         # 获取上述控件大小，便于设定 textCtrl 大小
         text_size = self.m_staticText_row.GetSize()
@@ -86,7 +86,7 @@ class TabSingleCam():
             self.m_textCtrl_row, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, pattern_border)
 
         self.m_staticText_col = wx.StaticText(
-            self.tab, wx.ID_ANY, u"标定板列数", wx.DefaultPosition, wx.DefaultSize, 0)
+            self.tab, wx.ID_ANY, u"Number of Cols", wx.DefaultPosition, wx.DefaultSize, 0)
         self.m_staticText_col.Wrap(-1)
 
         self.checkerpattern_h_sizer.Add(
@@ -98,7 +98,7 @@ class TabSingleCam():
             self.m_textCtrl_col, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, pattern_border)
 
         self.m_staticText_cellsize = wx.StaticText(
-            self.tab, wx.ID_ANY, u"标定板单元格边长(mm)", wx.DefaultPosition, wx.DefaultSize, 0)
+            self.tab, wx.ID_ANY, u"Checkerboard Cell Size(mm)", wx.DefaultPosition, wx.DefaultSize, 0)
         self.m_staticText_cellsize.Wrap(-1)
 
         self.checkerpattern_h_sizer.Add(
@@ -110,20 +110,20 @@ class TabSingleCam():
             self.m_textCtrl_cellsize, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, pattern_border)
 
         self.m_calibrate_btn = wx.Button(
-            self.tab, wx.ID_ANY, u"开始标定", wx.DefaultPosition, wx.DefaultSize, 0)
+            self.tab, wx.ID_ANY, u"Calib", wx.DefaultPosition, wx.DefaultSize, 0)
         self.m_calibrate_btn.SetBackgroundColour(wx.Colour(128, 255, 0))
         self.m_calibrate_btn.Enable(False)
         self.checkerpattern_h_sizer.Add(
             self.m_calibrate_btn, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, pattern_border)
 
         self.m_save_calibration_btn = wx.Button(
-            self.tab, wx.ID_ANY, u"保存标定结果", wx.DefaultPosition, wx.DefaultSize, 0)
+            self.tab, wx.ID_ANY, u"Save result", wx.DefaultPosition, wx.DefaultSize, 0)
         self.m_save_calibration_btn.Enable(False)
         self.checkerpattern_h_sizer.Add(
             self.m_save_calibration_btn, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, pattern_border)
         
         self.m_show_pts_dist_btn = wx.Button(
-            self.tab, wx.ID_ANY, u"显示棋盘格分布", wx.DefaultPosition, wx.DefaultSize, 0)
+            self.tab, wx.ID_ANY, u"Display the chessboard pattern distribution", wx.DefaultPosition, wx.DefaultSize, 0)
         self.m_show_pts_dist_btn.Enable(False)
         self.checkerpattern_h_sizer.Add(
             self.m_show_pts_dist_btn, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, pattern_border
@@ -135,7 +135,7 @@ class TabSingleCam():
             self.m_staticText_warning, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, pattern_border)
 
         # add use libcbdetect 
-        self.m_checkbox_use_libcbdetect = wx.CheckBox(self.tab, wx.ID_ANY, label="使用libcbdetect")
+        self.m_checkbox_use_libcbdetect = wx.CheckBox(self.tab, wx.ID_ANY, label="Use Libcbdetect")
         self.checkerpattern_h_sizer.Add(self.m_checkbox_use_libcbdetect, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, pattern_border)
         
         sizer.Add(self.checkerpattern_h_sizer, 1, wx.ALL, 5)
@@ -269,7 +269,7 @@ class TabSingleCam():
             max_err = None
         max_high_count = 0
 
-        dirroot = tree.AddRoot('文件名:(重投影误差)', image=0)
+        dirroot = tree.AddRoot('Filename: (Reprojection Error)', image=0)
         if len(filelist) > 0:
             for fname, r in zip(filelist, rpjes):
                 newItem = tree.AppendItem(
@@ -355,7 +355,7 @@ class TabSingleCam():
         if rootid != item:
             fname, rpje = self.m_treeCtl_images.GetItemData(item)
             menu = wx.Menu()
-            itm = menu.Append(wx.ID_ANY, "删除并重新标定")
+            itm = menu.Append(wx.ID_ANY, "Delete and recalibrate")
             self._temp_right_menu_data = fname
             self.tab.Bind(wx.EVT_MENU, self.on_recalib, itm)
             self.m_treeCtl_images.PopupMenu(menu, evt.GetPoint())
@@ -373,7 +373,7 @@ class TabSingleCam():
     # 加载图片文件
     def on_select_file_path(self, evt):
         dir_dialog = wx.DirDialog(
-            None, "选择校准图像路径", style=wx.DD_DEFAULT_STYLE | wx.DD_NEW_DIR_BUTTON)
+            None, "Select calibration board image path", style=wx.DD_DEFAULT_STYLE | wx.DD_NEW_DIR_BUTTON)
         if dir_dialog.ShowModal() == wx.ID_OK:
             self.current_root_dir = dir_dialog.GetPath()
             self.m_textCtrl_file_path.SetValue(self.current_root_dir)
@@ -393,15 +393,15 @@ class TabSingleCam():
         else:
             self.m_calibrate_btn.Enable(False)
             self.m_staticText_warning.SetLabel(
-                "！！！！！！！！！！！未找到图片！！！！！！！！！！！")
+                "No image files found in the calibration board image path")
             self.m_staticText_warning.SetBackgroundColour(wx.Colour(255, 0, 0))
 
         # progress
         keep_going = True
         count = 0
         max_value = len(images)
-        dlg = wx.ProgressDialog("加载图像",
-                                "图片加载中，请稍后",
+        dlg = wx.ProgressDialog("Loading images",
+                                "Loading，please wait",
                                 maximum=max_value,
                                 parent=self.tab,
                                 style=wx.PD_APP_MODAL | wx.PD_AUTO_HIDE)
@@ -422,7 +422,7 @@ class TabSingleCam():
     def on_click_calibrate(self, evt):
         if (len(self.m_textCtrl_row.GetValue()) and len(self.m_textCtrl_col.GetValue())) == 0:
             self.m_staticText_warning.SetLabel(
-                "请先填写标定板的行和列数，标定板单元格边长可以忽略，如果需要精确的 translation，那么请输入正确的值")
+                "Please fill in the number of rows and columns of the calibration board first. The side length of the calibration board cells can be ignored. If precise translation is needed, then please enter the correct values.")
             self.m_staticText_warning.SetBackgroundColour(wx.Colour(255, 0, 0))
         else:
             self.m_staticText_warning.SetLabel(wx.EmptyString)
@@ -443,8 +443,8 @@ class TabSingleCam():
                 cellsize = float(self.m_textCtrl_cellsize.GetValue())
 
             dlg = wx.ProgressDialog(
-                "标定", "正在标定...", maximum=3, parent=self.tab, style=wx.PD_APP_MODAL | wx.PD_AUTO_HIDE)
-            dlg.Update(0, "开始计算")
+                "Calibration", "Calibrating ...", maximum=3, parent=self.tab, style=wx.PD_APP_MODAL | wx.PD_AUTO_HIDE)
+            dlg.Update(0, "Calculating ...")
             thread = threading.Thread(target=self._run_camera_calibration_task, args=(
                 row, col, cellsize, results, filelist, dlg))
             thread.start()
@@ -456,7 +456,7 @@ class TabSingleCam():
 
     # 保存校准结果
     def on_save_calibration_results(self, evt):
-        dlg = wx.FileDialog(self.tab, u"保存标定结果", wildcard='*.json',
+        dlg = wx.FileDialog(self.tab, u"Save result", wildcard='*.json',
                             defaultFile='camera_parameters', style=wx.FD_SAVE)
         if dlg.ShowModal() == wx.ID_OK:
             path = dlg.GetPath()
@@ -468,7 +468,7 @@ class TabSingleCam():
     
     # 显示拍摄分布
     def on_show_disp_details(self, evt):
-        dpanel = DetailsImagePanel(self.tab.GetParent().GetParent(), "拍摄角点分布")
+        dpanel = DetailsImagePanel(self.tab.GetParent().GetParent(), "Corner distribution")
         dpanel.commit_cvdata(self.monocheck)
         dpanel.Show()
         self.tab.GetParent().GetParent().Disable()
@@ -523,11 +523,11 @@ class TabSingleCam():
                      mtx, dist, rvecs, tvecs, rpjes, rej_list, cal_list, err, pts, RPJS)
 
     def _camera_calibration_task_done(self, dlg, ret, mtx, dist, rvecs, tvecs, rpjes, rej_list, cal_list, err, pts, RPJS):
-        dlg.Update(1, "计算结束")
+        dlg.Update(1, "Finished")
         if ret is False:
             dlg.Destroy()
             # 使用wxpython创建一个msg box，并提示用户"标定失败"
-            wx.MessageBox(f"标定失败:{CalibErrType.to_string(err)}", "提示", wx.OK | wx.ICON_ERROR)
+            wx.MessageBox(f"Calibration Failed:{CalibErrType.to_string(err)}", "Notice", wx.OK | wx.ICON_ERROR)
             self.m_save_calibration_btn.Enable(False)
             self.m_show_pts_dist_btn.Enable(False)
             return
@@ -536,9 +536,9 @@ class TabSingleCam():
         self.mtx = mtx
         self.dist = dist
         # update the database
-        dlg.Update(2, "更新校准失败的文件信息...")
+        dlg.Update(2, "Updating information of files with failed calibration...")
         self._set_rejected_flags(rej_list)
-        dlg.Update(3, "保存标定结果到数据库...")
+        dlg.Update(3, "Saving calibration results to the database...")
         self._save_each_image_rt_rpje(rvecs, tvecs, rpjes, cal_list, pts, RPJS)
         wx.Sleep(1)
         dlg.Destroy()
