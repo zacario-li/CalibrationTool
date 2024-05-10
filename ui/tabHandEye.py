@@ -4,6 +4,7 @@ import threading
 import json
 import cv2
 import pickle
+import csv
 from multiprocessing import Pool
 import numpy as np
 from ui.components import ImagePanel
@@ -246,7 +247,7 @@ class TabHandEye():
             self.tab, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0)
         self.m_statictext_calib_err_result.Wrap(-1)
 
-        m_layout_he_view.Add(self.m_statictext_calib_err_result, 2, wx.ALIGN_CENTER_VERTICAL|wx.ALL, 5)
+        m_layout_he_view.Add(self.m_statictext_calib_err_result, 2, wx.ALIGN_TOP|wx.ALL, 5)
         return m_layout_he_view
 
     def _register_all_callbacks(self):
@@ -671,3 +672,24 @@ class TabHandEye():
                                                         WHERE filename=\'{f}\' ''', (cors_bytes,))
         else:
             logger.debug(f"please check the file list")
+
+    @staticmethod
+    def _convert_row_based_quat_txt_to_csv(txtfilename:str, outputcsv:str, convert2mm=True):
+        logger.debug(f"start convert txt into csv")
+        headers = ['q0', 'qx', 'qy', 'qz', 'tx', 'ty', 'tz']
+        with open(txtfilename, 'r') as infile, open(outputcsv, 'w', newline='') as outfile:
+            writer = csv.writer(outfile)
+            writer.writerow(headers)
+
+            for line in infile:
+                data = line.strip().split()
+                data = [float(x) for x in data]
+
+                if convert2mm is True:
+                    data[4] *=1000
+                    data[5] *=1000
+                    data[6] *=1000
+
+                writer.writerow(data)
+
+        logger.debug(f"convert done")
