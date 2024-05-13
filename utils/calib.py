@@ -12,11 +12,26 @@ from scipy.spatial.transform import Rotation
 from utils.checkerboard import detect_checkerboard
 from utils.err import CalibErrType
 
-def computeangle(ax, xb):
-    deltaR = xb @ np.linalg.inv(ax)
-    tr_a = np.trace(deltaR)
-    theta = np.rad2deg(np.arccos((tr_a - 1)/2))
-    return theta
+def compute_rotation_angle(ax, xb):
+    try:
+        if ax.shape[0] != ax.shape[1] or xb.shape[0] != xb.shape[1]:
+            raise ValueError("Both matrices must be square.")
+        
+        if np.linalg.det(ax) == 0:
+            raise ValueError("Matrix ax must be invertible.")
+        
+        deltaR = xb @ np.linalg.inv(ax)
+        tr_a = np.trace(deltaR)
+        
+        cos_theta = (tr_a -1)/2
+        if cos_theta < -1 or cos_theta >1:
+            raise ValueError("Trace calculation is out of bounds for acos.")
+
+        theta = np.rad2deg(np.arccos(cos_theta))
+        return theta
+    except Exception as e:
+        logger.warning(f"Error: {e}")
+        return None
 
 
 def combine_RT(R, Tx, Ty, Tz):
@@ -332,7 +347,7 @@ class HandEye():
         '''
         Theta_err = []
         for x1, x2 in zip(x1list, x2list):
-            theta = computeangle(x1[:3, :3], x2[:3, :3])
+            theta = compute_rotation_angle(x1[:3, :3], x2[:3, :3])
             Theta_err.append(theta)
         return np.linalg.norm(np.asarray(Theta_err))/len(Theta_err)
 
