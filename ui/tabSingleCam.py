@@ -1,3 +1,12 @@
+"""
+Author: zhijian li (lzjcyy@qq.com)
+tabSingleCam.py (c) 2024
+Desc: mono camera calibration
+Created:  2024-06-24T05:48:52.647Z
+Modified: !date!
+"""
+
+
 import os
 import sys
 import threading

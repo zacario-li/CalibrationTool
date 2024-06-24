@@ -1,3 +1,13 @@
+"""
+Author: zhijian li (lzjcyy@qq.com)
+tabStereoCam.py (c) 2024
+Desc: stereo cam calibration
+Created:  2024-06-24T05:48:28.590Z
+Modified: !date!
+"""
+
+
+
 import wx
 import os
 import cv2

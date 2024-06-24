@@ -2,6 +2,7 @@ import wx
 from .tabSingleCam import TabSingleCam
 from .tabStereoCam import TabStereoCam
 from .tabHandEye import TabHandEye
+from .tabStereoDisparity import TabStereoDisparity
 
 
 class MainWindow(wx.Frame):
@@ -20,12 +21,16 @@ class MainWindow(wx.Frame):
         tabsingle = wx.Panel(self.notebook)
         tabstereo = wx.Panel(self.notebook)
         tabhandeye = wx.Panel(self.notebook)
+        tabdisparity = wx.Panel(self.notebook)
 
         self.notebook.AddPage(tabsingle, 'Mono Camera')
         self.notebook.AddPage(tabstereo, 'Stereo Camera')
         self.notebook.AddPage(tabhandeye, 'HandEye')
+        self.notebook.AddPage(tabdisparity, "Stereo Disparity")
+
 
         # init tabs
         self.tsinglecam = TabSingleCam(self, tabsingle)
         self.tstereocam = TabStereoCam(self, tabstereo)
         self.thandeye = TabHandEye(self, tabhandeye)
+        self.tdisparity = TabStereoDisparity(self, tabdisparity)

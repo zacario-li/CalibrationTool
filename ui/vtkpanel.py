@@ -41,10 +41,4 @@ class VTKPanel(wx.Panel):
         self.ren.AddActor(actor)
 
         self.ren.ResetCamera()
-        self.cam = self.ren.GetActiveCamera()
-        self.cam.Azimuth(-70)
-        '''
-        ren.ResetCameraClippingRange()
-        cam.Elevation(10)
-        '''
         self.Refresh()

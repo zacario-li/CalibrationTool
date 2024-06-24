@@ -1,3 +1,11 @@
+"""
+Author: zhijian li (lzjcyy@qq.com)
+tabHandEye.py (c) 2024
+Desc: hand eye calibration
+Created:  2024-06-24T05:49:10.408Z
+Modified: !date!
+"""
+
 import wx
 import os
 import threading
