@@ -61,7 +61,7 @@ def load_handeye_param(filename:str):
     he = jstr[f'{ELEMENT_NAME}']['Matrix']
     return np.array(he)
 
-def load_camera_param(filename: str, need_trans=False):
+def load_camera_param(filename: str, need_trans=False, camera_id=False):
     # load parameters
     with open(filename) as f:
         jstr = json.load(f)
@@ -73,8 +73,10 @@ def load_camera_param(filename: str, need_trans=False):
 
     if 'CameraParameters' in jstr:
         ELEMENT_NAME = 'CameraParameters'
-    elif 'CameraParameters1' in jstr:
+    elif camera_id is False and 'CameraParameters1' in jstr:
         ELEMENT_NAME = 'CameraParameters1'
+    elif camera_id is True and 'CameraParameters2' in jstr:
+        ELEMENT_NAME = 'CameraParameters2'
     else:
         logger.debug("json file load err")
         return None, None

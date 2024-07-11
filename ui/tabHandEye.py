@@ -143,6 +143,10 @@ class TabHandEye():
             self.m_textctrl_load_b_path, 10, wx.ALL, 1)
         self.m_textctrl_load_b_path.Enable(False)
 
+        self.m_checkbox_camera_id = wx.CheckBox(
+            self.tab, wx.ID_ANY, label="Use right camera")
+        m_layout_he_dataloader_B.Add(self.m_checkbox_camera_id, 0, wx.ALIGN_CENTER_VERTICAL|wx.ALL,1)
+
         self.m_btn_loadB = wx.Button(
             self.tab, wx.ID_ANY, u"Load B(images)", wx.DefaultPosition, wx.DefaultSize, 0)
         m_layout_he_dataloader_B.Add(self.m_btn_loadB, 0, wx.ALL, 1)
@@ -599,7 +603,7 @@ class TabHandEye():
             ), randomtest=self.m_checkBox_rotation_only.IsChecked())
         # 加载相机参数
         mtx, dist = load_camera_param(
-            c_p, self.m_checkbox_cb_transflag.IsChecked())
+            c_p, self.m_checkbox_cb_transflag.IsChecked(), self.m_checkbox_camera_id.IsChecked())
         # 计算图像外参
         # images = self._list_images_with_suffix(b_p)
         # results = self.db.retrive_data(
