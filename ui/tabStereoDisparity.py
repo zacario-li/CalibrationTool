@@ -71,11 +71,18 @@ class TabStereoDisparity():
     def _create_operations_ui(self):
         m_layout_operations = wx.BoxSizer(wx.HORIZONTAL)
 
+
+        self.m_btn_op_load_images = wx.Button(self.tab, wx.ID_ANY, u"Load Images",
+                                              wx.DefaultPosition, wx.DefaultSize, 0)
         self.m_btn_op_depth = wx.Button(self.tab, wx.ID_ANY, u"Compute Depth",
                                         wx.DefaultPosition, wx.DefaultSize, 0)
+        self.m_btn_op_rectify = wx.Button(self.tab, wx.ID_ANY, u"Rectify Images",
+                                          wx.DefaultPosition, wx.DefaultSize, 0)
         self.m_btn_op_save = wx.Button(self.tab, wx.ID_ANY, u"Save Results",
                                        wx.DefaultPosition, wx.DefaultSize, 0)
+        m_layout_operations.Add(self.m_btn_op_load_images, 0, wx.ALL, 1)
         m_layout_operations.Add(self.m_btn_op_depth, 0, wx.ALL, 1)
+        m_layout_operations.Add(self.m_btn_op_rectify, 0, wx.ALL,1)
         m_layout_operations.Add(self.m_btn_op_save, 0, wx.ALL, 1)
 
         return m_layout_operations
@@ -89,20 +96,25 @@ class TabStereoDisparity():
 
         # disparity panel
         self.m_panel_disparity = ImagePanel(self.tab, wx.Size(640,480))
-        m_layout_data_view.Add(self.m_panel_disparity, 5, wx.ALIGN_BOTTOM | wx.ALL, 5)
+        m_layout_data_view.Add(self.m_panel_disparity, 5, wx.ALIGN_CENTER | wx.ALL, 5)
 
         # points panel
         self.m_panel_points = VTKPanel(self.tab, wx.Size(640,480))
-        m_layout_data_view.Add(self.m_panel_points, 5, wx.ALIGN_BOTTOM | wx.ALL, 5)
+        m_layout_data_view.Add(self.m_panel_points, 5, wx.ALIGN_CENTER | wx.ALL, 5)
         
         return m_layout_data_view
 
     def _register_all_callbacks(self):
         self.tab.Bind(wx.EVT_BUTTON, self.on_load_param_click,
                       self.m_btn_load_param)
+        self.tab.Bind(wx.EVT_BUTTON, self.on_load_images_click,
+                      self.m_btn_op_load_images)
         self.tab.Bind(wx.EVT_BUTTON, self.on_op_depth_click,
                       self.m_btn_op_depth)
-        self.tab.Bind(wx.EVT_BUTTON, self.on_op_save_click, self.m_btn_op_save)
+        self.tab.Bind(wx.EVT_BUTTON, self.on_op_rectify_click, 
+                      self.m_btn_op_rectify)
+        self.tab.Bind(wx.EVT_BUTTON, self.on_op_save_click, 
+                      self.m_btn_op_save)
         pass
 
     def on_load_param_click(self, evt):
@@ -129,8 +141,15 @@ class TabStereoDisparity():
 
         dlg.Destroy()
 
+    def on_load_images_click(self, evt):
+        dlg_filg_loader = StereoFileLoader(None, self.tab)
+        dlg_filg_loader.ShowModal()
+
     def on_op_depth_click(self, evt):
         pass
+
+    def on_op_rectify_click(self, evt):
+        pass 
 
     def on_op_save_click(self, evt):
         pass
@@ -147,3 +166,31 @@ class TabStereoDisparity():
 
     def update_treectrl(self, all: bool = False):
         pass
+
+
+class StereoFileLoader(wx.Dialog):
+    def __init__(self, parent, pp):
+        wx.Dialog.__init__(self, parent, title="Load Stereo Images", size=wx.Size(600,200))
+        self.SetMinSize(self.GetSize())
+        self.SetMaxSize(self.GetSize())
+        self.pp = pp
+
+        # temp l/r path
+        self.temp_lpath = ''
+        self.temp_rpath = ''
+
+    def on_select_file_path(self, evt):
+        pass 
+
+    def on_confirm(self, evt):
+        pass 
+
+    def _list_images_with_suffix(self, rootpath, suffix_list:list=['png', 'jpg', 'jpeg', 'bmp']):
+        images = []
+
+        for f in os.listdir(rootpath):
+            if not f.startswith('.'):
+                suffix = f.rsplit('.',1)[-1].lower()
+                if suffix in suffix_list:
+                    images.append(os.path.join(rootpath, f))
+        return images
