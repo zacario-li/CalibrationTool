@@ -61,7 +61,7 @@ def load_handeye_param(filename:str):
     he = jstr[f'{ELEMENT_NAME}']['Matrix']
     return np.array(he)
 
-def load_camera_param(filename: str, need_trans=False, camera_id=False):
+def load_camera_param(filename: str, need_trans=False, camera_id=False, need_rt=False):
     # load parameters
     with open(filename) as f:
         jstr = json.load(f)
@@ -84,13 +84,23 @@ def load_camera_param(filename: str, need_trans=False, camera_id=False):
     intri = jstr[f'{ELEMENT_NAME}']['IntrinsicMatrix']
     dist_r = jstr[f'{ELEMENT_NAME}']['RadialDistortion']
     dist_t = jstr[f'{ELEMENT_NAME}']['TangentialDistortion']
+
     mtx = np.array(intri)
     if NEED_TRANS:
         mtx = mtx.T
     dist = np.array(
         [dist_r[:2] + dist_t + [dist_r[-1]]]
     )
-    return mtx, dist
+    if need_rt is not True:
+        return mtx, dist
+    else:
+        if 'RotationOfCamera2' in jstr and 'TranslationOfCamera2' in jstr:
+            rot2 = jstr['RotationOfCamera2']
+            trans2 = jstr['TranslationOfCamera2']
+        else:
+            logger.debug("Can't find RotationOfCamera2 and TranslationOfCamera2 in json file")
+            return mtx, dist, None, None
+        return mtx, dist, np.array(rot2), np.array(trans2)
 
 
 def quat_2_rot(q: np.array):
