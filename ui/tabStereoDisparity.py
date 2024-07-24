@@ -38,6 +38,9 @@ class TabStereoDisparity():
         self.rofCam2 = None
         self.tofCam2 = None
 
+        # sgbm parameters
+        self.sgbm_matcher = None
+
         # default images path
         self.m_left_image_path = ''
         self.m_right_image_path = ''
@@ -72,6 +75,9 @@ class TabStereoDisparity():
         # 双目参数加载UI
         m_layout_params = self._create_ui_params()
         self.m_layout_main.Add(m_layout_params, 0, wx.EXPAND | wx.ALL, 0)
+        # SGBM/SGM 参数UI
+        m_layout_sgbm_params = self._create_sgbm_param_ui()
+        self.m_layout_main.Add(m_layout_sgbm_params, 0, wx.EXPAND | wx.ALL, 0)
         # 按钮操作UI
         m_layout_operations = self._create_operations_ui()
         self.m_layout_main.Add(m_layout_operations, 0, wx.EXPAND | wx.ALL, 0)
@@ -93,6 +99,10 @@ class TabStereoDisparity():
 
         return m_layout_params
 
+    def _create_sgbm_param_ui(self):
+        m_layout_sgbm = wx.BoxSizer(wx.HORIZONTAL)
+        return m_layout_sgbm
+
     def _create_operations_ui(self):
         m_layout_operations = wx.BoxSizer(wx.HORIZONTAL)
 
@@ -102,11 +112,14 @@ class TabStereoDisparity():
                                         wx.DefaultPosition, wx.DefaultSize, 0)
         self.m_btn_op_rectify = wx.Button(self.tab, wx.ID_ANY, u"Rectify Images",
                                           wx.DefaultPosition, wx.DefaultSize, 0)
+        self.m_btn_op_disparity = wx.Button(self.tab, wx.ID_ANY, u"Compute Disparity",
+                                            wx.DefaultPosition, wx.DefaultSize, 0)
         self.m_btn_op_save = wx.Button(self.tab, wx.ID_ANY, u"Save Results",
                                        wx.DefaultPosition, wx.DefaultSize, 0)
         m_layout_operations.Add(self.m_btn_op_load_images, 0, wx.ALL, 1)
         m_layout_operations.Add(self.m_btn_op_depth, 0, wx.ALL, 1)
         m_layout_operations.Add(self.m_btn_op_rectify, 0, wx.ALL, 1)
+        m_layout_operations.Add(self.m_btn_op_disparity, 0, wx.ALL, 1)
         m_layout_operations.Add(self.m_btn_op_save, 0, wx.ALL, 1)
 
         return m_layout_operations
@@ -139,6 +152,8 @@ class TabStereoDisparity():
                       self.m_btn_op_depth)
         self.tab.Bind(wx.EVT_BUTTON, self.on_op_rectify_click,
                       self.m_btn_op_rectify)
+        self.tab.Bind(wx.EVT_BUTTON, self.on_op_disparity_click,
+                      self.m_btn_op_disparity)
         self.tab.Bind(wx.EVT_BUTTON, self.on_op_save_click,
                       self.m_btn_op_save)
         self.tab.Bind(wx.EVT_TREE_SEL_CHANGING,
@@ -167,6 +182,9 @@ class TabStereoDisparity():
                 return
 
             self.m_textctrl_param_path.SetLabel(filepath)
+            # init stereo parameters
+            sgbminstance = SgbmCpu(filepath)
+            self.sgbm_matcher = sgbminstance.stereo
 
         dlg.Destroy()
 
@@ -195,6 +213,9 @@ class TabStereoDisparity():
         pass
 
     def on_op_rectify_click(self, evt):
+        pass
+
+    def on_op_disparity_click(self, evt):
         pass
 
     def on_op_save_click(self, evt):

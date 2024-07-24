@@ -1,9 +1,11 @@
-import cv2
 from loguru import logger
 import numpy as np
 import os
 import threading
 import time
+import cv2
+from utils.calib import load_camera_param
+
 
 def timer_decorator(func):
     def wrapper(*args, **kwargs):
@@ -14,14 +16,28 @@ def timer_decorator(func):
         return result
     return wrapper
 
+
 def load_systemconfig(configPath: str):
-    pass 
+    pass
+
 
 class SgbmCpu():
-    def __init__(self, stereoParamPath:str, configPath:str, imageSize:tuple):
-        self.P1 = None
-        self.P2 = None
+    def __init__(self, stereoParamPath: str, configPath: str = None, imageSize: tuple = (1920, 1080)):
+        # camera parameters
+        self.cam1_mtx = None
+        self.cam1_dist = None
+        self.cam2_mtx = None
+        self.cam2_dist = None
+        self.rofCam2 = None
+        self.tofCam2 = None
+
+        self.map1x, self.map1y = None, None
+        self.map2x, self.map2y = None, None
+
+        # sgbm parameters
         self.blockSize = 3
+        self.sgbmP1 = 8 * 3 * self.blockSize ** 2
+        self.sgbmP2 = 32 * 3 * self.blockSize ** 2
         self.minDisparity = 0
         self.numDisparities = 16*16
         self.disp12MaxDiff = 1
@@ -31,7 +47,40 @@ class SgbmCpu():
         self.speckleRange = 32
         self.mode = cv2.StereoSGBM_MODE_HH
 
+        # init
+        self._init_camera(stereoParamPath)
+        self.stereo = self._create_instance()
 
+    def _init_camera(self, stereoParamPath: str):
+        w,h = 1920, 1080
+        self.cam1_mtx, self.cam1_dist, w, h = load_camera_param(stereoParamPath, need_size=True)
+        self.cam2_mtx, self.cam2_dist, self.rofCam2, self.tofCam2 = load_camera_param(
+            stereoParamPath, camera_id=True, need_rt=True)
+        
+        self.R1, self.R2, self.P1, self.P2, self.Q, _, _ = cv2.stereoRectify(
+            self.cam1_mtx, self.cam1_dist,
+            self.cam2_mtx, self.cam2_dist,
+            (w,h),
+            self.rofCam2, self.tofCam2
+        )
 
-if __name__ == "__main__":
-    pass 
+        self.map1x, self.map1y = cv2.initUndistortRectifyMap(
+            self.cam1_mtx, self.cam1_dist, self.R1, self.P1, (w,h), cv2.CV_32FC1)
+        self.map2x, self.map2y = cv2.initUndistortRectifyMap(
+            self.cam2_mtx, self.cam2_dist, self.R2, self.P2, (w,h), cv2.CV_32FC1)
+
+    def _create_instance(self):
+        stereo = cv2.StereoSGBM_create(
+            minDisparity=self.minDisparity,
+            numDisparities=self.numDisparities,
+            blockSize=self.blockSize,
+            P1=self.sgbmP1,
+            P2=self.sgbmP2,
+            disp12MaxDiff=self.disp12MaxDiff,
+            preFilterCap=self.preFilterCap,
+            uniquenessRatio=self.uniquenessRatio,
+            speckleWindowSize=self.speckleWindowSize,
+            speckleRange=self.speckleRange,
+            mode=self.mode
+        )
+        return stereo

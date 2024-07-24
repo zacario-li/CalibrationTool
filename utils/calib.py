@@ -61,7 +61,7 @@ def load_handeye_param(filename:str):
     he = jstr[f'{ELEMENT_NAME}']['Matrix']
     return np.array(he)
 
-def load_camera_param(filename: str, need_trans=False, camera_id=False, need_rt=False):
+def load_camera_param(filename: str, need_trans=False, camera_id=False, need_rt=False, need_size=False):
     # load parameters
     with open(filename) as f:
         jstr = json.load(f)
@@ -92,7 +92,14 @@ def load_camera_param(filename: str, need_trans=False, camera_id=False, need_rt=
         [dist_r[:2] + dist_t + [dist_r[-1]]]
     )
     if need_rt is not True:
-        return mtx, dist
+        if need_size is not True:
+            return mtx, dist
+        else:
+            w,h = None, None
+            if 'ImageShape' in jstr:
+                imageshape = jstr['ImageShape']
+                w,h = imageshape[0], imageshape[1]
+            return mtx, dist, w, h    
     else:
         if 'RotationOfCamera2' in jstr and 'TranslationOfCamera2' in jstr:
             rot2 = jstr['RotationOfCamera2']
