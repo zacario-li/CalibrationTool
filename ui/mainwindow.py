@@ -7,7 +7,7 @@ from .tabStereoDisparity import TabStereoDisparity
 
 class MainWindow(wx.Frame):
     def __init__(self, parent, title):
-        wx.Frame.__init__(self, parent, title=title, size=(1280, 900))
+        wx.Frame.__init__(self, parent, title=title, size=(1366, 900))
         self.SetMinSize(self.GetSize())
         self.SetMaxSize(self.GetSize())
         self.Centre(wx.BOTH)

@@ -21,6 +21,9 @@ from utils.depth import SgbmCpu
 from loguru import logger
 from ui.vtkpanel import VTKPanel
 
+DISP_IMAGE_VIEW_W = 576
+DISP_IMAGE_VIEW_H = 384
+
 
 class TabStereoDisparity():
     def __init__(self, parent, tab):
@@ -45,8 +48,25 @@ class TabStereoDisparity():
         self._register_all_callbacks()
 
     def init_db(self):
-        # no db needed
-        pass
+        '''
+        |id integer|rootpath text|cameraid int|filename text|
+        |----------|-------------|------------|-------------|
+        |   0      |c:\data\L    |0           |img1.png     |
+        |   1      |c:\data\R    |1           |img1.png     |
+        '''
+        TABLE_SQL_STR = '''id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            rootpath text,
+                            cameraid int,
+                            filename text'''
+        self.DB_FILENAME = ':memory:'
+        self.DB_TABLENAME = 'disparity'
+        db = LocalStorage(self.DB_FILENAME)
+        ret = db.create_table(self.DB_TABLENAME, TABLE_SQL_STR)
+        if ret is not True:
+            logger.debug(f'create db table {self.DB_TABLENAME} failed')
+            return None
+        else:
+            return db
 
     def init_ui(self):
         # 双目参数加载UI
@@ -96,15 +116,15 @@ class TabStereoDisparity():
 
         # image list
         self.m_treectrl = self.create_treectrl()
-        m_layout_data_view.Add(self.m_treectrl, 1, wx.EXPAND | wx.ALL, 0)
+        m_layout_data_view.Add(self.m_treectrl, 2, wx.EXPAND | wx.ALL, 0)
 
         # disparity panel
-        self.m_panel_disparity = ImagePanel(self.tab, wx.Size(640, 480))
-        m_layout_data_view.Add(self.m_panel_disparity, 5,
+        self.m_panel_image = ImagePanel(self.tab, wx.Size(576, 384))
+        m_layout_data_view.Add(self.m_panel_image, 5,
                                wx.ALIGN_CENTER | wx.ALL, 5)
 
         # points panel
-        self.m_panel_points = VTKPanel(self.tab, wx.Size(640, 480))
+        self.m_panel_points = VTKPanel(self.tab, wx.Size(576, 384))
         m_layout_data_view.Add(self.m_panel_points, 5,
                                wx.ALIGN_CENTER | wx.ALL, 5)
 
@@ -121,6 +141,9 @@ class TabStereoDisparity():
                       self.m_btn_op_rectify)
         self.tab.Bind(wx.EVT_BUTTON, self.on_op_save_click,
                       self.m_btn_op_save)
+        self.tab.Bind(wx.EVT_TREE_SEL_CHANGING,
+                      self.on_tree_item_selected,
+                      self.m_treectrl)
         pass
 
     def on_load_param_click(self, evt):
@@ -154,6 +177,19 @@ class TabStereoDisparity():
             self.m_left_image_path,  self.m_right_image_path = dlg_filg_loader.get_image_paths()
             logger.debug(
                 f"{self.m_left_image_path} \n{self.m_right_image_path}")
+            # list images to db
+            lf = self._list_images_with_suffix(self.m_left_image_path)
+            rf = self._list_images_with_suffix(self.m_right_image_path)
+
+            self.db.delete_data(self.DB_TABLENAME, f"WHERE 1=1")
+            for litem, ritem in zip(lf, rf):
+                self.db.write_data(self.DB_TABLENAME,
+                                   f'null, \'{self.m_left_image_path}\', 0, \'{litem}\'')
+                self.db.write_data(self.DB_TABLENAME,
+                                   f'null, \'{self.m_right_image_path}\', 1, \'{ritem}\'')
+
+            # update tree control with new images
+            self.update_treectrl()
 
     def on_op_depth_click(self, evt):
         pass
@@ -163,6 +199,24 @@ class TabStereoDisparity():
 
     def on_op_save_click(self, evt):
         pass
+
+    def on_tree_item_selected(self, evt):
+        id = evt.GetItem()
+        rootid = self.m_treectrl.GetRootItem()
+        if rootid != id:
+            fname = self.m_treectrl.GetItemData(id)[0]
+            limage_data = cv2.imread(
+                os.path.join(self.m_left_image_path, fname))
+            img_h, img_w = limage_data.shape[:2]
+            SCALE_RATIO = img_w / DISP_IMAGE_VIEW_W
+            limage_data = cv2.cvtColor(limage_data, cv2.COLOR_BGR2RGB)
+            limage_data = cv2.resize(
+                limage_data, (int(img_w / SCALE_RATIO), int(img_h / SCALE_RATIO)))
+            self.m_panel_image.set_cvmat(limage_data)
+        else:
+            self.m_panel_image.set_bitmap(
+                wx.Bitmap(DISP_IMAGE_VIEW_W, DISP_IMAGE_VIEW_H))
+        self.m_panel_image.Refresh()
 
     def create_treectrl(self):
         self.iconlist = wx.ImageList(16, 16)
@@ -175,13 +229,45 @@ class TabStereoDisparity():
         return tree
 
     def update_treectrl(self, all: bool = False):
-        pass
+        tree = self.m_treectrl
+        tree.DeleteAllItems()
+
+        # prepare sql
+        condi_str = f"WHERE cameraid=0"
+        results = self.db.retrive_data(
+            self.DB_TABLENAME, f'rootpath, filename', condi_str)
+        fnames = [r[1] for r in results]
+        # rnames = [r[0] for r in results]
+
+        # update tree control
+        dirroot = tree.AddRoot(f"Left Image Files({len(fnames)}):", image=0)
+        if len(fnames) > 0:
+            for fname in fnames:
+                newItem = tree.AppendItem(
+                    dirroot,
+                    f'{fname}',
+                    data=[fname])
+                tree.SetItemImage(newItem, self.icon_ok)
+            tree.Expand(dirroot)
+            tree.SelectItem(newItem)
+            tree.EnsureVisible(newItem)
+            tree.EnableVisibleFocus(True)
+
+    def _list_images_with_suffix(self, rootpath, suffix_list: list = ['png', 'jpg', 'jpeg', 'bmp']):
+        images = []
+
+        for f in os.listdir(rootpath):
+            if not f.startswith('.'):
+                suffix = f.rsplit('.', 1)[-1].lower()
+                if suffix in suffix_list:
+                    images.append(f)
+        return images
 
 
 class StereoFileLoader(wx.Dialog):
     def __init__(self, parent, l, r):
         wx.Dialog.__init__(
-            self, parent, title="Load Stereo Images", size=wx.Size(600, 200))
+            self, parent, title="Load Stereo Images", size=wx.Size(600, 180))
         self.SetMinSize(self.GetSize())
         self.SetMaxSize(self.GetSize())
 
@@ -264,13 +350,3 @@ class StereoFileLoader(wx.Dialog):
         # m_btn_left m_btn_right
         self.Bind(wx.EVT_BUTTON, self.on_select_file_path, self.m_btn_left)
         self.Bind(wx.EVT_BUTTON, self.on_select_file_path, self.m_btn_right)
-
-    def _list_images_with_suffix(self, rootpath, suffix_list: list = ['png', 'jpg', 'jpeg', 'bmp']):
-        images = []
-
-        for f in os.listdir(rootpath):
-            if not f.startswith('.'):
-                suffix = f.rsplit('.', 1)[-1].lower()
-                if suffix in suffix_list:
-                    images.append(os.path.join(rootpath, f))
-        return images
