@@ -35,16 +35,16 @@ class SgbmCpu():
         self.map2x, self.map2y = None, None
 
         # sgbm parameters
-        self.blockSize = 3
-        self.sgbmP1 = 8 * 3 * self.blockSize ** 2
-        self.sgbmP2 = 32 * 3 * self.blockSize ** 2
+        self.blockSize = 1
+        self.sgbmP1 = 1
+        self.sgbmP2 = 128
         self.minDisparity = 0
-        self.numDisparities = 16*16
+        self.numDisparities = 256
         self.disp12MaxDiff = 1
-        self.preFilterCap = 63
-        self.uniquenessRatio = 15
-        self.speckleWindowSize = 0
-        self.speckleRange = 32
+        self.preFilterCap = 15
+        self.uniquenessRatio = 5
+        self.speckleWindowSize = 50
+        self.speckleRange = 8
         self.mode = cv2.StereoSGBM_MODE_HH
 
         # init

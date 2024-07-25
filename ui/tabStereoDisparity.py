@@ -45,6 +45,13 @@ class TabStereoDisparity():
         self.m_left_image_path = ''
         self.m_right_image_path = ''
 
+        # last computed disparity, depth, rectified images
+        self.disparity_image = None
+        self.depth_image = None
+        self.rectified_left_image = None
+        self.rectified_right_image = None
+
+        # setup layout
         self.m_layout_main = wx.BoxSizer(wx.VERTICAL)
         self.tab.SetSizer(self.m_layout_main)
         self.init_ui()
@@ -216,7 +223,21 @@ class TabStereoDisparity():
         pass
 
     def on_op_disparity_click(self, evt):
-        pass
+        item = self.m_treectrl.GetFocusedItem()
+        lfname = self.m_treectrl.GetItemData(item)[0]
+        rfname = self.m_treectrl.GetItemData(item)[1]
+        # check if fname is exist in folder
+        if os.path.isfile(os.path.join(self.m_left_image_path, lfname)) and os.path.isfile(os.path.join(self.m_right_image_path, rfname)):
+            # 以下代码非常耗时，我希望统一放在线程中运行
+            dlg = wx.ProgressDialog("Disparity", 
+                                "Computing now，please wait",
+                                maximum=10,
+                                parent=self.tab,
+                                style=wx.PD_APP_MODAL | wx.PD_AUTO_HIDE)
+            dlg.Update(5)
+            
+            thread = threading.Thread(target=self.do_compute_disparity_task, args=(os.path.join(self.m_left_image_path, lfname), os.path.join(self.m_right_image_path, rfname), dlg))
+            thread.start()            
 
     def on_op_save_click(self, evt):
         pass
@@ -239,6 +260,20 @@ class TabStereoDisparity():
                 wx.Bitmap(DISP_IMAGE_VIEW_W, DISP_IMAGE_VIEW_H))
         self.m_panel_image.Refresh()
 
+    def do_compute_disparity_task(self, lfname, rfname, dlg):
+        limage = cv2.imread(lfname)
+        rimage = cv2.imread(rfname)
+        self.disparity_image = self.sgbm_matcher.compute(limage, rimage)
+        wx.CallAfter(self.on_disparity_done, dlg)
+
+    def on_disparity_done(self, dlg):
+        dlg.Update(10)
+        disparity_display = cv2.normalize(self.disparity_image.astype(np.uint8), None, 0, 255, cv2.NORM_MINMAX)
+        disparity_display = cv2.resize(disparity_display, (DISP_IMAGE_VIEW_W, DISP_IMAGE_VIEW_H))
+        self.m_panel_image.set_cvmat(disparity_display)
+        self.m_panel_image.Refresh()
+        dlg.Destroy()
+
     def create_treectrl(self):
         self.iconlist = wx.ImageList(16, 16)
         self.icon_ok = self.iconlist.Add(wx.ArtProvider.GetBitmap(
@@ -254,20 +289,23 @@ class TabStereoDisparity():
         tree.DeleteAllItems()
 
         # prepare sql
-        condi_str = f"WHERE cameraid=0"
-        results = self.db.retrive_data(
-            self.DB_TABLENAME, f'rootpath, filename', condi_str)
-        fnames = [r[1] for r in results]
-        # rnames = [r[0] for r in results]
+        condi_l = f"WHERE cameraid=0"
+        condi_r = f"WHERE cameraid=1"
+        lresults = self.db.retrive_data(
+            self.DB_TABLENAME, f'rootpath, filename', condi_l)
+        rresults = self.db.retrive_data(
+            self.DB_TABLENAME, f'rootpath, filename', condi_r)
+        lfnames = [r[1] for r in lresults]
+        rfnames = [r[1] for r in rresults]
 
         # update tree control
-        dirroot = tree.AddRoot(f"Left Image Files({len(fnames)}):", image=0)
-        if len(fnames) > 0:
-            for fname in fnames:
+        dirroot = tree.AddRoot(f"Left Image Files({len(lfnames)}):", image=0)
+        if len(lfnames) > 0:
+            for l,r in zip(lfnames,rfnames):
                 newItem = tree.AppendItem(
                     dirroot,
-                    f'{fname}',
-                    data=[fname])
+                    f'{l}',
+                    data=[l,r])
                 tree.SetItemImage(newItem, self.icon_ok)
             tree.Expand(dirroot)
             tree.SelectItem(newItem)
