@@ -22,6 +22,7 @@ from loguru import logger
 from ui.vtkpanel import VTKPanel
 import vtk
 from vtk.util import numpy_support
+import pickle
 
 DISP_IMAGE_VIEW_W = 576
 DISP_IMAGE_VIEW_H = 384
@@ -58,19 +59,22 @@ class TabStereoDisparity():
         self.tab.SetSizer(self.m_layout_main)
         self.init_ui()
         self._register_all_callbacks()
+        self._reset_op_btns(False)
 
     def init_db(self):
         '''
-        |id integer|rootpath text|cameraid int|filename text|
-        |----------|-------------|------------|-------------|
-        |   0      |c:\data\L    |0           |img1.png     |
-        |   1      |c:\data\R    |1           |img1.png     |
+        |id integer|rootpath text|cameraid int|filename text|disparity blob|
+        |----------|-------------|------------|-------------|--------------|
+        |   0      |c:\data\L    |0           |img1.png     |array bytes   |
+        |   1      |c:\data\R    |1           |img1.png     |array bytes   |
         '''
         TABLE_SQL_STR = '''id INTEGER PRIMARY KEY AUTOINCREMENT,
                             rootpath text,
                             cameraid int,
-                            filename text'''
+                            filename text,
+                            disparity blob'''
         self.DB_FILENAME = ':memory:'
+        # self.DB_FILENAME = 'disparity.db'
         self.DB_TABLENAME = 'disparity'
         db = LocalStorage(self.DB_FILENAME)
         ret = db.create_table(self.DB_TABLENAME, TABLE_SQL_STR)
@@ -93,6 +97,12 @@ class TabStereoDisparity():
         # 图像显示列表及disparity&points
         m_layout_data_view = self._create_view_ui()
         self.m_layout_main.Add(m_layout_data_view, 20, wx.EXPAND | wx.ALL, 0)
+
+    def _reset_op_btns(self, enable=False):
+        self.m_btn_op_disparity.Enable(enable)
+        self.m_btn_op_depth.Enable(enable)
+        self.m_btn_op_rectify.Enable(enable)
+        self.m_btn_op_save.Enable(enable)
 
     def _create_ui_params(self):
         m_layout_params = wx.BoxSizer(wx.HORIZONTAL)
@@ -126,9 +136,9 @@ class TabStereoDisparity():
         self.m_btn_op_save = wx.Button(self.tab, wx.ID_ANY, u"Save Results",
                                        wx.DefaultPosition, wx.DefaultSize, 0)
         m_layout_operations.Add(self.m_btn_op_load_images, 0, wx.ALL, 1)
-        m_layout_operations.Add(self.m_btn_op_depth, 0, wx.ALL, 1)
-        m_layout_operations.Add(self.m_btn_op_rectify, 0, wx.ALL, 1)
         m_layout_operations.Add(self.m_btn_op_disparity, 0, wx.ALL, 1)
+        m_layout_operations.Add(self.m_btn_op_rectify, 0, wx.ALL, 1)
+        m_layout_operations.Add(self.m_btn_op_depth, 0, wx.ALL, 1)
         m_layout_operations.Add(self.m_btn_op_save, 0, wx.ALL, 1)
 
         return m_layout_operations
@@ -168,7 +178,6 @@ class TabStereoDisparity():
         self.tab.Bind(wx.EVT_TREE_SEL_CHANGING,
                       self.on_tree_item_selected,
                       self.m_treectrl)
-        pass
 
     def on_load_param_click(self, evt):
         dlg = wx.FileDialog(
@@ -211,9 +220,9 @@ class TabStereoDisparity():
             self.db.delete_data(self.DB_TABLENAME, f"WHERE 1=1")
             for litem, ritem in zip(lf, rf):
                 self.db.write_data(self.DB_TABLENAME,
-                                   f'null, \'{self.m_left_image_path}\', 0, \'{litem}\'')
+                                   f'null, \'{self.m_left_image_path}\', 0, \'{litem}\', null')
                 self.db.write_data(self.DB_TABLENAME,
-                                   f'null, \'{self.m_right_image_path}\', 1, \'{ritem}\'')
+                                   f'null, \'{self.m_right_image_path}\', 1, \'{ritem}\', null')
 
             # update tree control with new images
             self.update_treectrl()
@@ -221,8 +230,8 @@ class TabStereoDisparity():
     def on_op_depth_click(self, evt):
         if self.disparity_image is not None:
             logger.debug("Computing depth...")
-            # disp = self.disparity_image.astype(np.float32)/16.0
-            disp = cv2.convertScaleAbs(self.disparity_image, alpha=1/16.0, beta=0)
+            disp = self.disparity_image.astype(np.float32)/16.0
+            # disp = cv2.convertScaleAbs(self.disparity_image, alpha=1/16.0, beta=0)
             self.depth_image = cv2.reprojectImageTo3D(
                 disp, self.sgbminstance.Q, handleMissingValues=True)
 
@@ -297,13 +306,21 @@ class TabStereoDisparity():
                                     style=wx.PD_APP_MODAL | wx.PD_AUTO_HIDE)
             dlg.Update(5)
 
-            thread = threading.Thread(target=self.do_compute_disparity_task, args=(os.path.join(
-                self.m_left_image_path, lfname), os.path.join(self.m_right_image_path, rfname), dlg))
+            thread = threading.Thread(target=self.do_compute_disparity_task, args=(lfname, rfname, dlg))
             thread.start()
 
     def on_op_save_click(self, evt):
-        disparity_disp = cv2.normalize(self.disparity_image.astype(np.uint8), None, 0, 255, cv2.NORM_MINMAX)
-        cv2.imwrite("disparity.png", disparity_disp)
+        item = self.m_treectrl.GetFocusedItem()
+        lfname = self.m_treectrl.GetItemData(item)[0]
+        # retrive disparity from db
+        condi_disp = f"WHERE cameraid=0 AND filename=\'{lfname}\' "
+        disp_data = self.db.retrive_data(self.DB_TABLENAME, f'disparity', condi_disp)
+        if disp_data[0][0] is not None:
+            disp = pickle.loads(disp_data[0][0])
+            disparity_disp = cv2.normalize(disp.astype(np.uint8), None, 0, 255, cv2.NORM_MINMAX)
+            cv2.imwrite("disparity.png", disparity_disp)
+            wx.MessageBox(f"Disparity saved to disparity.png!", "Info", wx.OK)
+
 
     def on_tree_item_selected(self, evt):
         id = evt.GetItem()
@@ -318,20 +335,51 @@ class TabStereoDisparity():
             limage_data = cv2.resize(
                 limage_data, (int(img_w / SCALE_RATIO), int(img_h / SCALE_RATIO)))
             self.m_panel_image.set_cvmat(limage_data)
+
+            # retrive disparity from db
+            condi_disp = f"WHERE cameraid=0 AND filename=\'{fname}\' "
+            disp_data = self.db.retrive_data(self.DB_TABLENAME, f'disparity', condi_disp)
+            if disp_data[0][0] is not None:
+                disp = pickle.loads(disp_data[0][0])
+                disparity_display = cv2.normalize(disp.astype(
+                    np.uint8), None, 0, 255, cv2.NORM_MINMAX)
+                h,w = disparity_display.shape
+                SCALE_RATIO = w / DISP_IMAGE_VIEW_W
+                disparity_display = cv2.resize(
+                    disparity_display, (int(w/SCALE_RATIO), int(h/SCALE_RATIO)))
+                self.m_panel_disparity.set_cvmat(disparity_display)
+                self._reset_op_btns(True)
+            else:
+                self._clear_image_panel(self.m_panel_disparity)
+                self._reset_op_btns(False)
+            self.m_btn_op_disparity.Enable(True)
         else:
-            self.m_panel_image.set_bitmap(
-                wx.Bitmap(DISP_IMAGE_VIEW_W, DISP_IMAGE_VIEW_H))
+            self._clear_image_panel(self.m_panel_image)
+            self._clear_image_panel(self.m_panel_disparity)
+            self._reset_op_btns(False)
+            self.m_btn_op_disparity.Enable(False)
+            
         self.m_panel_image.Refresh()
+        self.m_panel_disparity.Refresh()
 
     def do_compute_disparity_task(self, lfname, rfname, dlg):
-        limage = cv2.imread(lfname)
-        rimage = cv2.imread(rfname)
+        limage = cv2.imread(os.path.join(self.m_left_image_path, lfname))
+        rimage = cv2.imread(os.path.join(self.m_right_image_path, rfname))
         rl = cv2.remap(limage, self.sgbminstance.map1x, self.sgbminstance.map1y, cv2.INTER_LINEAR)
         rr = cv2.remap(rimage, self.sgbminstance.map2x, self.sgbminstance.map2y, cv2.INTER_LINEAR)
         self.disparity_image = self.sgbm_matcher.compute(rl, rr)
-        wx.CallAfter(self.on_disparity_done, dlg)
 
-    def on_disparity_done(self, dlg):
+        wx.CallAfter(self.on_disparity_done, dlg, lfname, rfname)
+
+    def on_disparity_done(self, dlg, lfname, rfname):
+        # save disparity into db
+        disparity_bytes = pickle.dumps(self.disparity_image)
+        self.db.modify_data(self.DB_TABLENAME,
+                            f'''SET disparity=? 
+                            WHERE cameraid=0 AND filename=\'{lfname}\'
+                            ''',
+                            (disparity_bytes,))
+
         dlg.Update(10)
         disparity_display = cv2.normalize(self.disparity_image.astype(
             np.uint8), None, 0, 255, cv2.NORM_MINMAX)
@@ -342,6 +390,10 @@ class TabStereoDisparity():
         self.m_panel_disparity.set_cvmat(disparity_display)
         self.m_panel_disparity.Refresh()
         dlg.Destroy()
+        self._reset_op_btns(True)
+
+    def _clear_image_panel(self, panel):
+        panel.set_bitmap(wx.Bitmap(DISP_IMAGE_VIEW_W, DISP_IMAGE_VIEW_H))
 
     def create_treectrl(self):
         self.iconlist = wx.ImageList(16, 16)
@@ -356,6 +408,10 @@ class TabStereoDisparity():
     def update_treectrl(self, all: bool = False):
         tree = self.m_treectrl
         tree.DeleteAllItems()
+
+        # clear image panels
+        self._clear_image_panel(self.m_panel_disparity)
+        self._clear_image_panel(self.m_panel_image)
 
         # prepare sql
         condi_l = f"WHERE cameraid=0"
