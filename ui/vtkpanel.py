@@ -30,15 +30,16 @@ class VTKPanel(wx.Panel):
         self.marker1 = vtk.vtkCameraOrientationWidget()
         self.marker1.SetParentRenderer(self.ren)
         self.marker1.On()
+        self.actor = vtk.vtkActor()
 
-    def render(self, src=None):
-        reader = vtk.vtkSTLReader()
-        reader.SetFileName(self.src if src is None else src)
-        mapper = vtk.vtkPolyDataMapper()
-        mapper.SetInputConnection(reader.GetOutputPort())
-        actor = vtk.vtkActor()
-        actor.SetMapper(mapper)
-        self.ren.AddActor(actor)
+    # def render(self, src=None):
+    #     reader = vtk.vtkSTLReader()
+    #     reader.SetFileName(self.src if src is None else src)
+    #     mapper = vtk.vtkPolyDataMapper()
+    #     mapper.SetInputConnection(reader.GetOutputPort())
+    #     self.actor = vtk.vtkActor()
+    #     self.actor.SetMapper(mapper)
+    #     self.ren.AddActor(self.actor)
 
-        self.ren.ResetCamera()
-        self.Refresh()
+    #     self.ren.ResetCamera()
+    #     self.Refresh()

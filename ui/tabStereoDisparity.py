@@ -20,6 +20,8 @@ from utils.ophelper import *
 from utils.depth import SgbmCpu
 from loguru import logger
 from ui.vtkpanel import VTKPanel
+import vtk
+from vtk.util import numpy_support
 
 DISP_IMAGE_VIEW_W = 576
 DISP_IMAGE_VIEW_H = 384
@@ -138,14 +140,14 @@ class TabStereoDisparity():
         self.m_treectrl = self.create_treectrl()
         m_layout_data_view.Add(self.m_treectrl, 2, wx.EXPAND | wx.ALL, 0)
 
-        # disparity panel
+        # image panel
         self.m_panel_image = ImagePanel(self.tab, wx.Size(576, 384))
         m_layout_data_view.Add(self.m_panel_image, 5,
                                wx.ALIGN_CENTER | wx.ALL, 5)
 
-        # points panel
-        self.m_panel_points = VTKPanel(self.tab, wx.Size(576, 384))
-        m_layout_data_view.Add(self.m_panel_points, 5,
+        # disparity panel
+        self.m_panel_disparity = ImagePanel(self.tab, wx.Size(576, 384))
+        m_layout_data_view.Add(self.m_panel_disparity, 5,
                                wx.ALIGN_CENTER | wx.ALL, 5)
 
         return m_layout_data_view
@@ -190,8 +192,8 @@ class TabStereoDisparity():
 
             self.m_textctrl_param_path.SetLabel(filepath)
             # init stereo parameters
-            sgbminstance = SgbmCpu(filepath)
-            self.sgbm_matcher = sgbminstance.stereo
+            self.sgbminstance = SgbmCpu(filepath)
+            self.sgbm_matcher = self.sgbminstance.stereo
 
         dlg.Destroy()
 
@@ -217,7 +219,66 @@ class TabStereoDisparity():
             self.update_treectrl()
 
     def on_op_depth_click(self, evt):
-        pass
+        if self.disparity_image is not None:
+            logger.debug("Computing depth...")
+            # disp = self.disparity_image.astype(np.float32)/16.0
+            disp = cv2.convertScaleAbs(self.disparity_image, alpha=1/16.0, beta=0)
+            self.depth_image = cv2.reprojectImageTo3D(
+                disp, self.sgbminstance.Q, handleMissingValues=True)
+
+            h, w, _ = self.depth_image.shape
+            depths = np.linalg.norm(self.depth_image, axis=2)
+            valid_mask = np.isfinite(depths)
+            valid_depths = depths[valid_mask]
+
+            min_depth = np.min(valid_depths)
+            max_depth = np.max(valid_depths)
+            depth_range = max_depth - min_depth
+
+            points = vtk.vtkPoints()
+            colors = vtk.vtkUnsignedCharArray()
+            colors.SetNumberOfComponents(3)
+            colors.SetName("Colors")
+
+            for y in range(h):
+                for x in range(w):
+                    point = self.depth_image[y, x]
+                    if not np.isfinite(point[2]) or point[2] < min_depth or point[2] > max_depth:
+                        continue
+                    points.InsertNextPoint(point[0], point[1], point[2])
+
+            polydata = vtk.vtkPolyData()
+            polydata.SetPoints(points)
+            polydata.GetPointData().SetScalars(colors)
+
+            vertex_filter = vtk.vtkVertexGlyphFilter()
+            vertex_filter.SetInputData(polydata)
+            vertex_filter.Update()
+
+            mapper = vtk.vtkPolyDataMapper()
+            mapper.SetInputData(vertex_filter.GetOutput())
+
+            actor = vtk.vtkActor()
+            actor.SetMapper(mapper)
+            actor.GetProperty().SetPointSize(2)
+
+            renderer = vtk.vtkRenderer()
+            renderWindow = vtk.vtkRenderWindow()
+            renderWindow.AddRenderer(renderer)
+            renderWindow.SetSize(1280, 800)
+
+            renderer.AddActor(actor)
+
+            interactor = vtk.vtkRenderWindowInteractor()
+            interactor.SetRenderWindow(renderWindow)
+
+            style = vtk.vtkInteractorStyleTrackballCamera()
+            interactor.SetInteractorStyle(style)
+
+            interactor.Initialize()
+            renderWindow.Render()
+
+            interactor.Start()
 
     def on_op_rectify_click(self, evt):
         pass
@@ -229,18 +290,20 @@ class TabStereoDisparity():
         # check if fname is exist in folder
         if os.path.isfile(os.path.join(self.m_left_image_path, lfname)) and os.path.isfile(os.path.join(self.m_right_image_path, rfname)):
             # 以下代码非常耗时，我希望统一放在线程中运行
-            dlg = wx.ProgressDialog("Disparity", 
-                                "Computing now，please wait",
-                                maximum=10,
-                                parent=self.tab,
-                                style=wx.PD_APP_MODAL | wx.PD_AUTO_HIDE)
+            dlg = wx.ProgressDialog("Disparity",
+                                    "Computing now，please wait",
+                                    maximum=10,
+                                    parent=self.tab,
+                                    style=wx.PD_APP_MODAL | wx.PD_AUTO_HIDE)
             dlg.Update(5)
-            
-            thread = threading.Thread(target=self.do_compute_disparity_task, args=(os.path.join(self.m_left_image_path, lfname), os.path.join(self.m_right_image_path, rfname), dlg))
-            thread.start()            
+
+            thread = threading.Thread(target=self.do_compute_disparity_task, args=(os.path.join(
+                self.m_left_image_path, lfname), os.path.join(self.m_right_image_path, rfname), dlg))
+            thread.start()
 
     def on_op_save_click(self, evt):
-        pass
+        disparity_disp = cv2.normalize(self.disparity_image.astype(np.uint8), None, 0, 255, cv2.NORM_MINMAX)
+        cv2.imwrite("disparity.png", disparity_disp)
 
     def on_tree_item_selected(self, evt):
         id = evt.GetItem()
@@ -251,7 +314,7 @@ class TabStereoDisparity():
                 os.path.join(self.m_left_image_path, fname))
             img_h, img_w = limage_data.shape[:2]
             SCALE_RATIO = img_w / DISP_IMAGE_VIEW_W
-            limage_data = cv2.cvtColor(limage_data, cv2.COLOR_BGR2RGB)
+            # limage_data = cv2.cvtColor(limage_data, cv2.COLOR_BGR2RGB)
             limage_data = cv2.resize(
                 limage_data, (int(img_w / SCALE_RATIO), int(img_h / SCALE_RATIO)))
             self.m_panel_image.set_cvmat(limage_data)
@@ -263,15 +326,21 @@ class TabStereoDisparity():
     def do_compute_disparity_task(self, lfname, rfname, dlg):
         limage = cv2.imread(lfname)
         rimage = cv2.imread(rfname)
-        self.disparity_image = self.sgbm_matcher.compute(limage, rimage)
+        rl = cv2.remap(limage, self.sgbminstance.map1x, self.sgbminstance.map1y, cv2.INTER_LINEAR)
+        rr = cv2.remap(rimage, self.sgbminstance.map2x, self.sgbminstance.map2y, cv2.INTER_LINEAR)
+        self.disparity_image = self.sgbm_matcher.compute(rl, rr)
         wx.CallAfter(self.on_disparity_done, dlg)
 
     def on_disparity_done(self, dlg):
         dlg.Update(10)
-        disparity_display = cv2.normalize(self.disparity_image.astype(np.uint8), None, 0, 255, cv2.NORM_MINMAX)
-        disparity_display = cv2.resize(disparity_display, (DISP_IMAGE_VIEW_W, DISP_IMAGE_VIEW_H))
-        self.m_panel_image.set_cvmat(disparity_display)
-        self.m_panel_image.Refresh()
+        disparity_display = cv2.normalize(self.disparity_image.astype(
+            np.uint8), None, 0, 255, cv2.NORM_MINMAX)
+        h,w = disparity_display.shape
+        SCALE_RATIO = w / DISP_IMAGE_VIEW_W
+        disparity_display = cv2.resize(
+            disparity_display, (int(w/SCALE_RATIO), int(h/SCALE_RATIO)))
+        self.m_panel_disparity.set_cvmat(disparity_display)
+        self.m_panel_disparity.Refresh()
         dlg.Destroy()
 
     def create_treectrl(self):
@@ -301,11 +370,11 @@ class TabStereoDisparity():
         # update tree control
         dirroot = tree.AddRoot(f"Left Image Files({len(lfnames)}):", image=0)
         if len(lfnames) > 0:
-            for l,r in zip(lfnames,rfnames):
+            for l, r in zip(lfnames, rfnames):
                 newItem = tree.AppendItem(
                     dirroot,
                     f'{l}',
-                    data=[l,r])
+                    data=[l, r])
                 tree.SetItemImage(newItem, self.icon_ok)
             tree.Expand(dirroot)
             tree.SelectItem(newItem)
