@@ -22,7 +22,7 @@ def load_systemconfig(configPath: str):
 
 
 class SgbmCpu():
-    def __init__(self, stereoParamPath: str, configPath: str = None, imageSize: tuple = (1920, 1080)):
+    def __init__(self, stereoParamPath: str, config, imageSize: tuple = (1920, 1080)):
         # camera parameters
         self.cam1_mtx = None
         self.cam1_dist = None
@@ -35,17 +35,17 @@ class SgbmCpu():
         self.map2x, self.map2y = None, None
 
         # sgbm parameters
-        self.blockSize = 1
-        self.sgbmP1 = 1
-        self.sgbmP2 = 128
-        self.minDisparity = 0
-        self.numDisparities = 256
-        self.disp12MaxDiff = 1
-        self.preFilterCap = 15
-        self.uniquenessRatio = 5
-        self.speckleWindowSize = 50
-        self.speckleRange = 8
-        self.mode = cv2.StereoSGBM_MODE_HH
+        self.mode = config[0] #cv2.StereoSGBM_MODE_HH
+        self.blockSize = config[1] #1
+        self.sgbmP1 = config[2] #1
+        self.sgbmP2 = config[3] #128
+        self.minDisparity = config[4] #0
+        self.numDisparities = config[5] #256
+        self.disp12MaxDiff = config[6] #1
+        self.preFilterCap = config[7] #15
+        self.uniquenessRatio = config[8] #5
+        self.speckleWindowSize = config[9] #50
+        self.speckleRange = config[10] #8
 
         # init
         self._init_camera(stereoParamPath)

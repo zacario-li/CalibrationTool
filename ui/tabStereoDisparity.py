@@ -85,12 +85,12 @@ class TabStereoDisparity():
             return db
 
     def init_ui(self):
-        # 双目参数加载UI
-        m_layout_params = self._create_ui_params()
-        self.m_layout_main.Add(m_layout_params, 0, wx.EXPAND | wx.ALL, 0)
         # SGBM/SGM 参数UI
         m_layout_sgbm_params = self._create_sgbm_param_ui()
         self.m_layout_main.Add(m_layout_sgbm_params, 0, wx.EXPAND | wx.ALL, 0)
+        # 双目参数加载UI
+        m_layout_params = self._create_ui_params()
+        self.m_layout_main.Add(m_layout_params, 0, wx.EXPAND | wx.ALL, 0)
         # 按钮操作UI
         m_layout_operations = self._create_operations_ui()
         self.m_layout_main.Add(m_layout_operations, 0, wx.EXPAND | wx.ALL, 0)
@@ -119,7 +119,111 @@ class TabStereoDisparity():
         return m_layout_params
 
     def _create_sgbm_param_ui(self):
-        m_layout_sgbm = wx.BoxSizer(wx.HORIZONTAL)
+        m_layout_sgbm = wx.BoxSizer(wx.VERTICAL)
+        # mode layout: radio box
+        m_layout_sgbm_mode = wx.BoxSizer(wx.HORIZONTAL)
+        sgbm_mode_choices = [u'SGBM', u'HH', u'SGBM_3WAY', u'HH4']
+        self.m_radioBox_sgbm_mode = wx.RadioBox(
+            self.tab, wx.ID_ANY, u"Mode", wx.DefaultPosition, wx.DefaultSize, sgbm_mode_choices, 1, wx.RA_SPECIFY_ROWS)
+        self.m_radioBox_sgbm_mode.SetSelection(1)
+        m_layout_sgbm_mode.Add(self.m_radioBox_sgbm_mode, 0, wx.ALL, 1)
+
+        # parameter block size, p1, p2, minDisparity, numDisparities
+        m_layout_sgbm_params1 = wx.BoxSizer(wx.HORIZONTAL)
+
+        st_blocksize = wx.StaticText(
+            self.tab, wx.ID_ANY, u"Block Size", wx.DefaultPosition, wx.DefaultSize, 0)
+        st_P1 = wx.StaticText(self.tab, wx.ID_ANY, u"P1",
+                              wx.DefaultPosition, wx.DefaultSize, 0)
+        st_P2 = wx.StaticText(self.tab, wx.ID_ANY, u"P2",
+                              wx.DefaultPosition, wx.DefaultSize, 0)
+        st_minDisparity = wx.StaticText(
+            self.tab, wx.ID_ANY, u"Min Disparity", wx.DefaultPosition, wx.DefaultSize, 0)
+        st_numDisparities = wx.StaticText(
+            self.tab, wx.ID_ANY, u"Num of Disparities", wx.DefaultPosition, wx.DefaultSize, 0)
+
+        self.m_textctrl_sgbm_blocksize = wx.TextCtrl(
+            self.tab, wx.ID_ANY, u'1', wx.DefaultPosition, wx.DefaultSize, 0)
+        self.m_textctrl_sgbm_P1 = wx.TextCtrl(
+            self.tab, wx.ID_ANY, u'1', wx.DefaultPosition, wx.DefaultSize, 0)
+        self.m_textctrl_sgbm_P2 = wx.TextCtrl(
+            self.tab, wx.ID_ANY, u'128', wx.DefaultPosition, wx.DefaultSize, 0)
+        self.m_textctrl_sgbm_minDisparity = wx.TextCtrl(
+            self.tab, wx.ID_ANY, u'0', wx.DefaultPosition, wx.DefaultSize, 0)
+        self.m_textctrl_sgbm_numDisparities = wx.TextCtrl(
+            self.tab, wx.ID_ANY, u'256', wx.DefaultPosition, wx.DefaultSize, 0)
+
+        m_layout_sgbm_params1.Add(
+            st_blocksize, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 2)
+        m_layout_sgbm_params1.Add(
+            self.m_textctrl_sgbm_blocksize, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 2)
+        m_layout_sgbm_params1.Add(
+            st_P1, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 2)
+        m_layout_sgbm_params1.Add(
+            self.m_textctrl_sgbm_P1, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 2)
+        m_layout_sgbm_params1.Add(
+            st_P2, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 2)
+        m_layout_sgbm_params1.Add(
+            self.m_textctrl_sgbm_P2, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 2)
+        m_layout_sgbm_params1.Add(
+            st_minDisparity, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 2)
+        m_layout_sgbm_params1.Add(
+            self.m_textctrl_sgbm_minDisparity, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 2)
+        m_layout_sgbm_params1.Add(
+            st_numDisparities, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 2)
+        m_layout_sgbm_params1.Add(
+            self.m_textctrl_sgbm_numDisparities, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 2)
+
+        # disp12MaxDiff, preFilterCap, uniquenessRatio, speckleWindowSize, speckleRange
+        m_layout_sgbm_params2 = wx.BoxSizer(wx.HORIZONTAL)
+
+        st_disp12MaxDiff = wx.StaticText(
+            self.tab, wx.ID_ANY, u"Disp12MaxDiff", wx.DefaultPosition, wx.DefaultSize, 0)
+        st_preFilterCap = wx.StaticText(
+            self.tab, wx.ID_ANY, u"PreFilterCap", wx.DefaultPosition, wx.DefaultSize, 0)
+        st_uniquenessRatio = wx.StaticText(
+            self.tab, wx.ID_ANY, u"UniquenessRatio", wx.DefaultPosition, wx.DefaultSize, 0)
+        st_speckleWindowSize = wx.StaticText(
+            self.tab, wx.ID_ANY, u"SpeckleWindowSize", wx.DefaultPosition, wx.DefaultSize, 0)
+        st_speckleRange = wx.StaticText(
+            self.tab, wx.ID_ANY, u"SpeckleRange", wx.DefaultPosition, wx.DefaultSize, 0)
+
+        self.m_textctrl_sgbm_disp12MaxDiff = wx.TextCtrl(
+            self.tab, wx.ID_ANY, u'1', wx.DefaultPosition, wx.DefaultSize, 0)
+        self.m_textctrl_sgbm_preFilterCap = wx.TextCtrl(
+            self.tab, wx.ID_ANY, u'15', wx.DefaultPosition, wx.DefaultSize, 0)
+        self.m_textctrl_sgbm_uniquenessRatio = wx.TextCtrl(
+            self.tab, wx.ID_ANY, u'5', wx.DefaultPosition, wx.DefaultSize, 0)
+        self.m_textctrl_sgbm_speckleWindowSize = wx.TextCtrl(
+            self.tab, wx.ID_ANY, u'50', wx.DefaultPosition, wx.DefaultSize, 0)
+        self.m_textctrl_sgbm_speckleRange = wx.TextCtrl(
+            self.tab, wx.ID_ANY, u'8', wx.DefaultPosition, wx.DefaultSize, 0)
+
+        m_layout_sgbm_params2.Add(
+            st_disp12MaxDiff, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 2)
+        m_layout_sgbm_params2.Add(
+            self.m_textctrl_sgbm_disp12MaxDiff, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 2)
+        m_layout_sgbm_params2.Add(
+            st_preFilterCap, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 2)
+        m_layout_sgbm_params2.Add(
+            self.m_textctrl_sgbm_preFilterCap, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 2)
+        m_layout_sgbm_params2.Add(
+            st_uniquenessRatio, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 2)
+        m_layout_sgbm_params2.Add(
+            self.m_textctrl_sgbm_uniquenessRatio, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 2)
+        m_layout_sgbm_params2.Add(
+            st_speckleWindowSize, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 2)
+        m_layout_sgbm_params2.Add(
+            self.m_textctrl_sgbm_speckleWindowSize, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 2)
+        m_layout_sgbm_params2.Add(
+            st_speckleRange, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 2)
+        m_layout_sgbm_params2.Add(
+            self.m_textctrl_sgbm_speckleRange, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 2)
+
+        m_layout_sgbm.Add(m_layout_sgbm_mode, 0, wx.EXPAND | wx.ALL, 1)
+        m_layout_sgbm.Add(m_layout_sgbm_params1, 0, wx.EXPAND | wx.ALL, 1)
+        m_layout_sgbm.Add(m_layout_sgbm_params2, 0, wx.EXPAND | wx.ALL, 1)
+
         return m_layout_sgbm
 
     def _create_operations_ui(self):
@@ -178,6 +282,100 @@ class TabStereoDisparity():
         self.tab.Bind(wx.EVT_TREE_SEL_CHANGING,
                       self.on_tree_item_selected,
                       self.m_treectrl)
+        # sgbm parameter changing event 
+        self.tab.Bind(wx.EVT_RADIOBOX, self.on_sgbm_parameter_change,
+                      self.m_radioBox_sgbm_mode)
+        self.tab.Bind(wx.EVT_TEXT, self.on_sgbm_parameter_change,
+                      self.m_textctrl_sgbm_blocksize)
+        self.tab.Bind(wx.EVT_TEXT, self.on_sgbm_parameter_change,
+                      self.m_textctrl_sgbm_P1)
+        self.tab.Bind(wx.EVT_TEXT, self.on_sgbm_parameter_change,
+                      self.m_textctrl_sgbm_P2)
+        self.tab.Bind(wx.EVT_TEXT, self.on_sgbm_parameter_change,
+                      self.m_textctrl_sgbm_minDisparity)
+        self.tab.Bind(wx.EVT_TEXT, self.on_sgbm_parameter_change,
+                      self.m_textctrl_sgbm_numDisparities)
+        self.tab.Bind(wx.EVT_TEXT, self.on_sgbm_parameter_change,
+                      self.m_textctrl_sgbm_disp12MaxDiff)
+        self.tab.Bind(wx.EVT_TEXT, self.on_sgbm_parameter_change,
+                      self.m_textctrl_sgbm_preFilterCap)
+        self.tab.Bind(wx.EVT_TEXT, self.on_sgbm_parameter_change,
+                      self.m_textctrl_sgbm_uniquenessRatio)
+        self.tab.Bind(wx.EVT_TEXT, self.on_sgbm_parameter_change,
+                      self.m_textctrl_sgbm_speckleWindowSize)
+        self.tab.Bind(wx.EVT_TEXT, self.on_sgbm_parameter_change,
+                      self.m_textctrl_sgbm_speckleRange)
+
+
+    def _refresh_stereo_macher(self, filepath):
+        logger.info(f"Refreshing stereo macher with {filepath}")
+        # apply config for sgbm
+        mode = self.m_radioBox_sgbm_mode.GetSelection()
+
+        # 以下GetValue()都需要判定是否不等于'',如果为''，怎返回默认值
+        if (self.m_textctrl_sgbm_blocksize.GetValue()).strip() == '':
+            blksize = 1
+        else:
+            blksize = int(self.m_textctrl_sgbm_blocksize.GetValue())
+
+        if (self.m_textctrl_sgbm_P1.GetValue()).strip() == '':
+            P1 = 1
+        else:
+            P1 = int(self.m_textctrl_sgbm_P1.GetValue())
+
+        if (self.m_textctrl_sgbm_P2.GetValue()).strip() == '':
+            P2 = 128
+        else:
+            P2 = int(self.m_textctrl_sgbm_P2.GetValue())
+
+        if (self.m_textctrl_sgbm_minDisparity.GetValue()).strip() == '':
+            minDisp = 0
+        else:
+            minDisp = int(self.m_textctrl_sgbm_minDisparity.GetValue())
+
+        if (self.m_textctrl_sgbm_numDisparities.GetValue()).strip == '':
+            numDisp = 256
+        else:
+            numDisp = int(self.m_textctrl_sgbm_numDisparities.GetValue())
+
+        if (self.m_textctrl_sgbm_disp12MaxDiff.GetValue()).strip() == '':
+            disp12MaxDiff = 1
+        else:
+            disp12MaxDiff = int(self.m_textctrl_sgbm_disp12MaxDiff.GetValue())
+
+        if (self.m_textctrl_sgbm_preFilterCap.GetValue()).strip() == '':
+            preFCap = 15
+        else:
+            preFCap = int(self.m_textctrl_sgbm_preFilterCap.GetValue())
+
+        if (self.m_textctrl_sgbm_uniquenessRatio.GetValue()).strip() == '':
+            uratio = 5
+        else:
+            uratio = int(self.m_textctrl_sgbm_uniquenessRatio.GetValue())
+
+        if (self.m_textctrl_sgbm_speckleWindowSize.GetValue()).strip() == '':
+            sws = 50
+        else:
+            sws = int(self.m_textctrl_sgbm_speckleWindowSize.GetValue())
+
+        if (self.m_textctrl_sgbm_speckleRange.GetValue()).strip() == '':
+            sr = 8
+        else:
+            sr = int(self.m_textctrl_sgbm_speckleRange.GetValue())
+
+
+        self.sgbminstance = SgbmCpu(filepath, [
+                                    mode, blksize, P1, P2, minDisp, numDisp, disp12MaxDiff, preFCap, uratio, sws, sr])
+        self.sgbm_matcher = self.sgbminstance.stereo
+
+    def on_sgbm_parameter_change(self, evt):
+        if evt.GetId() != self.m_radioBox_sgbm_mode.GetId():
+            if (evt.GetEventObject().GetValue()).strip() == '':
+                return
+        filepath = self.m_textctrl_param_path.GetValue()
+        if os.path.exists(filepath):
+            # 清理数据库中的disparity数据，置灰部分按钮 TODO
+            self._refresh_stereo_macher(filepath)
 
     def on_load_param_click(self, evt):
         dlg = wx.FileDialog(
@@ -201,8 +399,7 @@ class TabStereoDisparity():
 
             self.m_textctrl_param_path.SetLabel(filepath)
             # init stereo parameters
-            self.sgbminstance = SgbmCpu(filepath)
-            self.sgbm_matcher = self.sgbminstance.stereo
+            self._refresh_stereo_macher(filepath)
 
         dlg.Destroy()
 
@@ -306,7 +503,8 @@ class TabStereoDisparity():
                                     style=wx.PD_APP_MODAL | wx.PD_AUTO_HIDE)
             dlg.Update(5)
 
-            thread = threading.Thread(target=self.do_compute_disparity_task, args=(lfname, rfname, dlg))
+            thread = threading.Thread(
+                target=self.do_compute_disparity_task, args=(lfname, rfname, dlg))
             thread.start()
 
     def on_op_save_click(self, evt):
@@ -314,13 +512,14 @@ class TabStereoDisparity():
         lfname = self.m_treectrl.GetItemData(item)[0]
         # retrive disparity from db
         condi_disp = f"WHERE cameraid=0 AND filename=\'{lfname}\' "
-        disp_data = self.db.retrive_data(self.DB_TABLENAME, f'disparity', condi_disp)
+        disp_data = self.db.retrive_data(
+            self.DB_TABLENAME, f'disparity', condi_disp)
         if disp_data[0][0] is not None:
             disp = pickle.loads(disp_data[0][0])
-            disparity_disp = cv2.normalize(disp.astype(np.uint8), None, 0, 255, cv2.NORM_MINMAX)
+            disparity_disp = cv2.normalize(disp.astype(
+                np.uint8), None, 0, 255, cv2.NORM_MINMAX)
             cv2.imwrite("disparity.png", disparity_disp)
             wx.MessageBox(f"Disparity saved to disparity.png!", "Info", wx.OK)
-
 
     def on_tree_item_selected(self, evt):
         id = evt.GetItem()
@@ -338,12 +537,13 @@ class TabStereoDisparity():
 
             # retrive disparity from db
             condi_disp = f"WHERE cameraid=0 AND filename=\'{fname}\' "
-            disp_data = self.db.retrive_data(self.DB_TABLENAME, f'disparity', condi_disp)
+            disp_data = self.db.retrive_data(
+                self.DB_TABLENAME, f'disparity', condi_disp)
             if disp_data[0][0] is not None:
                 disp = pickle.loads(disp_data[0][0])
                 disparity_display = cv2.normalize(disp.astype(
                     np.uint8), None, 0, 255, cv2.NORM_MINMAX)
-                h,w = disparity_display.shape
+                h, w = disparity_display.shape
                 SCALE_RATIO = w / DISP_IMAGE_VIEW_W
                 disparity_display = cv2.resize(
                     disparity_display, (int(w/SCALE_RATIO), int(h/SCALE_RATIO)))
@@ -358,15 +558,17 @@ class TabStereoDisparity():
             self._clear_image_panel(self.m_panel_disparity)
             self._reset_op_btns(False)
             self.m_btn_op_disparity.Enable(False)
-            
+
         self.m_panel_image.Refresh()
         self.m_panel_disparity.Refresh()
 
     def do_compute_disparity_task(self, lfname, rfname, dlg):
         limage = cv2.imread(os.path.join(self.m_left_image_path, lfname))
         rimage = cv2.imread(os.path.join(self.m_right_image_path, rfname))
-        rl = cv2.remap(limage, self.sgbminstance.map1x, self.sgbminstance.map1y, cv2.INTER_LINEAR)
-        rr = cv2.remap(rimage, self.sgbminstance.map2x, self.sgbminstance.map2y, cv2.INTER_LINEAR)
+        rl = cv2.remap(limage, self.sgbminstance.map1x,
+                       self.sgbminstance.map1y, cv2.INTER_LINEAR)
+        rr = cv2.remap(rimage, self.sgbminstance.map2x,
+                       self.sgbminstance.map2y, cv2.INTER_LINEAR)
         self.disparity_image = self.sgbm_matcher.compute(rl, rr)
 
         wx.CallAfter(self.on_disparity_done, dlg, lfname, rfname)
@@ -383,7 +585,7 @@ class TabStereoDisparity():
         dlg.Update(10)
         disparity_display = cv2.normalize(self.disparity_image.astype(
             np.uint8), None, 0, 255, cv2.NORM_MINMAX)
-        h,w = disparity_display.shape
+        h, w = disparity_display.shape
         SCALE_RATIO = w / DISP_IMAGE_VIEW_W
         disparity_display = cv2.resize(
             disparity_display, (int(w/SCALE_RATIO), int(h/SCALE_RATIO)))
