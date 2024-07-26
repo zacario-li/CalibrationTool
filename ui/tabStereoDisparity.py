@@ -306,7 +306,6 @@ class TabStereoDisparity():
         self.tab.Bind(wx.EVT_TEXT, self.on_sgbm_parameter_change,
                       self.m_textctrl_sgbm_speckleRange)
 
-
     def _refresh_stereo_macher(self, filepath):
         logger.info(f"Refreshing stereo macher with {filepath}")
         # apply config for sgbm
@@ -562,6 +561,7 @@ class TabStereoDisparity():
         self.m_panel_image.Refresh()
         self.m_panel_disparity.Refresh()
 
+    @timer_decorator
     def do_compute_disparity_task(self, lfname, rfname, dlg):
         limage = cv2.imread(os.path.join(self.m_left_image_path, lfname))
         rimage = cv2.imread(os.path.join(self.m_right_image_path, rfname))
@@ -573,6 +573,7 @@ class TabStereoDisparity():
 
         wx.CallAfter(self.on_disparity_done, dlg, lfname, rfname)
 
+    @timer_decorator
     def on_disparity_done(self, dlg, lfname, rfname):
         # save disparity into db
         disparity_bytes = pickle.dumps(self.disparity_image)
@@ -647,6 +648,7 @@ class TabStereoDisparity():
                 suffix = f.rsplit('.', 1)[-1].lower()
                 if suffix in suffix_list:
                     images.append(f)
+        images.sort()
         return images
 
 

@@ -306,6 +306,7 @@ class TabHandEye():
                 suffix = f.rsplit('.', 1)[-1].lower()
                 if suffix in suffix_list:
                     images.append(f)
+        images.sort()
         return images
 
     def _write_2_file(self, filename):
