@@ -243,6 +243,11 @@ class TabHandEye():
             self.tab, wx.ID_ANY, u"Use Libcbdetect", wx.DefaultPosition, wx.DefaultSize, 0)
         m_layout_he_cb_param.Add(self.m_checkbox_use_libcbdetect, 0, wx.ALIGN_CENTER_VERTICAL, 0)
 
+        # output in meter
+        self.m_checkbox_output_json_in_meter = wx.CheckBox(
+            self.tab, wx.ID_ANY, u"Output JSON in meter", wx.DefaultPosition, wx.DefaultSize, 0)
+        m_layout_he_cb_param.Add(self.m_checkbox_output_json_in_meter, 0, wx.ALIGN_CENTER_VERTICAL, 0)
+
         return m_layout_he_cb_param
 
     def _create_ui_he_view(self):
@@ -570,14 +575,16 @@ class TabHandEye():
                 self.m_btn_save.Enable(False)
                 return 
             # axxb
-            
+            meter_flag = 1
+            if self.m_checkbox_output_json_in_meter.IsChecked():
+                meter_flag = 1000
             self.r_error = float(r_e)
             self.t_error = float(t_e)
             self.X = combine_RT(r_c2g, float(
-                t_c2g[0]), float(t_c2g[1]), float(t_c2g[2]))
+                t_c2g[0])/meter_flag, float(t_c2g[1])/meter_flag, float(t_c2g[2])/meter_flag) # save in meters or mm
+            
             result_string = f'AXXB Calibration Result:\n\n Rotation:\n {np.array2string(r_c2g)} \n\n Translation:\n {np.array2string(t_c2g)} \n\n Rotation err: {r_e} (degree) \n Translation err: {t_e} (mm)'
             self.m_statictext_calib_err_result.SetLabel(result_string)
-
             # axzb
         else:
             self.m_statictext_calib_err_result.SetLabel('')
