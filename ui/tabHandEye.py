@@ -208,7 +208,7 @@ class TabHandEye():
             self.m_statictext_cb_row, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 5
         )
         self.m_textctrl_cb_row = wx.TextCtrl(
-            self.tab, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0
+            self.tab, wx.ID_ANY, u'9', wx.DefaultPosition, wx.DefaultSize, 0
         )
         m_layout_he_cb_param.Add(
             self.m_textctrl_cb_row, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 5
@@ -220,7 +220,7 @@ class TabHandEye():
         m_layout_he_cb_param.Add(
             self.m_statictext_cb_col, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 5)
         self.m_textctrl_cb_col = wx.TextCtrl(
-            self.tab, wx.ID_ANY, wx.EmptyString, wx.DefaultPosition, wx.DefaultSize, 0
+            self.tab, wx.ID_ANY, u'12', wx.DefaultPosition, wx.DefaultSize, 0
         )
         m_layout_he_cb_param.Add(
             self.m_textctrl_cb_col, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 5)
@@ -370,10 +370,20 @@ class TabHandEye():
         self.m_layout_he_main.Add(m_layout_he_type, 1, wx.EXPAND, 0)
 
         # 手眼标定方法选择区域
+        self.m_staticline_calib_method_upper = wx.StaticLine(
+            self.tab, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.LI_HORIZONTAL)
+        self.m_layout_he_main.Add(
+            self.m_staticline_calib_method_upper, 0, wx.EXPAND | wx.ALL, 0)
+        
         m_layout_he_calib_method = self._create_ui_he_calib_method()
         self.m_layout_he_main.Add(m_layout_he_calib_method, 2, wx.EXPAND, 0)
 
         # 标定板参数设定区域
+        self.m_staticline_cb_param_upper = wx.StaticLine(
+            self.tab, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.LI_HORIZONTAL)
+        self.m_layout_he_main.Add(
+            self.m_staticline_cb_param_upper, 0, wx.EXPAND | wx.ALL, 0)
+        
         m_layout_he_cb_param = self._create_ui_he_checkerboard_param()
         self.m_layout_he_main.Add(m_layout_he_cb_param, 1, wx.EXPAND, 0)
 
