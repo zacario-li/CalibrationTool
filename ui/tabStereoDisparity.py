@@ -175,7 +175,7 @@ class TabStereoDisparity():
         m_layout_sgbm_params1.Add(
             self.m_textctrl_sgbm_numDisparities, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 2)
 
-        # disp12MaxDiff, preFilterCap, uniquenessRatio, speckleWindowSize, speckleRange
+        # disp12MaxDiff, preFilterCap, uniquenessRatio, speckleWindowSize, speckleRange, zlimit
         m_layout_sgbm_params2 = wx.BoxSizer(wx.HORIZONTAL)
 
         st_disp12MaxDiff = wx.StaticText(
@@ -188,6 +188,8 @@ class TabStereoDisparity():
             self.tab, wx.ID_ANY, u"SpeckleWindowSize", wx.DefaultPosition, wx.DefaultSize, 0)
         st_speckleRange = wx.StaticText(
             self.tab, wx.ID_ANY, u"SpeckleRange", wx.DefaultPosition, wx.DefaultSize, 0)
+        st_zlimit = wx.StaticText(
+            self.tab, wx.ID_ANY, u"Zlimit in mm", wx.DefaultPosition, wx.DefaultSize, 0)
 
         self.m_textctrl_sgbm_disp12MaxDiff = wx.TextCtrl(
             self.tab, wx.ID_ANY, u'1', wx.DefaultPosition, wx.DefaultSize, 0)
@@ -199,6 +201,8 @@ class TabStereoDisparity():
             self.tab, wx.ID_ANY, u'50', wx.DefaultPosition, wx.DefaultSize, 0)
         self.m_textctrl_sgbm_speckleRange = wx.TextCtrl(
             self.tab, wx.ID_ANY, u'8', wx.DefaultPosition, wx.DefaultSize, 0)
+        self.m_textctrl_sgbm_zlimit = wx.TextCtrl(
+            self.tab, wx.ID_ANY, u'500', wx.DefaultPosition, wx.DefaultSize, 0)
 
         m_layout_sgbm_params2.Add(
             st_disp12MaxDiff, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 2)
@@ -220,6 +224,11 @@ class TabStereoDisparity():
             st_speckleRange, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 2)
         m_layout_sgbm_params2.Add(
             self.m_textctrl_sgbm_speckleRange, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 2)
+        m_layout_sgbm_params2.Add(
+            st_zlimit, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 2)
+        m_layout_sgbm_params2.Add(
+            self.m_textctrl_sgbm_zlimit, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 2)
+        
 
         m_layout_sgbm.Add(m_layout_sgbm_mode, 0, wx.EXPAND | wx.ALL, 1)
         m_layout_sgbm.Add(m_layout_sgbm_params1, 0, wx.EXPAND | wx.ALL, 1)
@@ -438,64 +447,87 @@ class TabStereoDisparity():
     def on_op_depth_click(self, evt):
         if self.disparity_image is not None:
             logger.debug("Computing depth...")
-            disp = self.disparity_image.astype(np.float32)/16.0
-            # disp = cv2.convertScaleAbs(self.disparity_image, alpha=1/16.0, beta=0)
-            self.depth_image = cv2.reprojectImageTo3D(
-                disp, self.sgbminstance.Q, handleMissingValues=True)
+            dlg = wx.ProgressDialog(
+                "Depth",
+                "Generating Points...",
+                maximum=3,
+                parent=self.tab,
+                style=wx.PD_APP_MODAL | wx.PD_AUTO_HIDE
+            )
+            dlg.Update(1, "Generating points...")
+            thread = threading.Thread(target=self._run_op_depth_task,
+                                      args=(dlg, self.disparity_image))
+            thread.start()
 
-            h, w, _ = self.depth_image.shape
-            depths = np.linalg.norm(self.depth_image, axis=2)
-            valid_mask = np.isfinite(depths)
-            valid_depths = depths[valid_mask]
+    def _run_op_depth_task(self, dlg, disparity):
+        disp = disparity.astype(np.float32)/16.0
+        self.depth_image = cv2.reprojectImageTo3D(
+            disp, self.sgbminstance.Q, handleMissingValues=True)
 
-            min_depth = np.min(valid_depths)
-            max_depth = np.max(valid_depths)
-            depth_range = max_depth - min_depth
+        h, w, _ = self.depth_image.shape
+        depths = np.linalg.norm(self.depth_image, axis=2)
+        valid_mask = np.isfinite(depths)
+        valid_depths = depths[valid_mask]
 
-            points = vtk.vtkPoints()
-            colors = vtk.vtkUnsignedCharArray()
-            colors.SetNumberOfComponents(3)
-            colors.SetName("Colors")
+        min_depth = np.min(valid_depths)
+        max_depth = min(np.max(valid_depths), float(self.m_textctrl_sgbm_zlimit.GetValue()))
+        depth_range = max_depth - min_depth
 
-            for y in range(h):
-                for x in range(w):
-                    point = self.depth_image[y, x]
-                    if not np.isfinite(point[2]) or point[2] < min_depth or point[2] > max_depth:
-                        continue
-                    points.InsertNextPoint(point[0], point[1], point[2])
+        points = vtk.vtkPoints()
+        colors = vtk.vtkUnsignedCharArray()
+        colors.SetNumberOfComponents(3)
+        colors.SetName("Colors")
 
-            polydata = vtk.vtkPolyData()
-            polydata.SetPoints(points)
-            polydata.GetPointData().SetScalars(colors)
+        color_src = cv2.cvtColor(self.rectified_left_image, cv2.COLOR_BGR2RGB)
 
-            vertex_filter = vtk.vtkVertexGlyphFilter()
-            vertex_filter.SetInputData(polydata)
-            vertex_filter.Update()
+        for y in range(h):
+            for x in range(w):
+                point = self.depth_image[y, x]
+                if not np.isfinite(point[2]) or point[2] < min_depth or point[2] > max_depth:
+                    continue
+                points.InsertNextPoint(point[0], -point[1], -point[2])
+                colors.InsertNextTuple(color_src[y,x])
+        wx.CallAfter(self.on_op_depth_done, [dlg, points, colors])
 
-            mapper = vtk.vtkPolyDataMapper()
-            mapper.SetInputData(vertex_filter.GetOutput())
+    def on_op_depth_done(self, args:list):
+        dlg, points, colors = args[0], args[1], args[2]
+        dlg.Update(2, "Prepare rendering")
+        polydata = vtk.vtkPolyData()
+        polydata.SetPoints(points)
+        polydata.GetPointData().SetScalars(colors)
 
-            actor = vtk.vtkActor()
-            actor.SetMapper(mapper)
-            actor.GetProperty().SetPointSize(2)
+        vertex_filter = vtk.vtkVertexGlyphFilter()
+        vertex_filter.SetInputData(polydata)
+        vertex_filter.Update()
 
-            renderer = vtk.vtkRenderer()
-            renderWindow = vtk.vtkRenderWindow()
-            renderWindow.AddRenderer(renderer)
-            renderWindow.SetSize(1280, 800)
+        mapper = vtk.vtkPolyDataMapper()
+        mapper.SetInputData(vertex_filter.GetOutput())
 
-            renderer.AddActor(actor)
+        actor = vtk.vtkActor()
+        actor.SetMapper(mapper)
+        actor.GetProperty().SetPointSize(2)
 
-            interactor = vtk.vtkRenderWindowInteractor()
-            interactor.SetRenderWindow(renderWindow)
+        renderer = vtk.vtkRenderer()
+        renderWindow = vtk.vtkRenderWindow()
+        renderWindow.AddRenderer(renderer)
+        renderWindow.SetSize(1280, 800)
 
-            style = vtk.vtkInteractorStyleTrackballCamera()
-            interactor.SetInteractorStyle(style)
+        renderer.AddActor(actor)
 
-            interactor.Initialize()
-            renderWindow.Render()
+        interactor = vtk.vtkRenderWindowInteractor()
+        interactor.SetRenderWindow(renderWindow)
 
-            interactor.Start()
+        style = vtk.vtkInteractorStyleTrackballCamera()
+        interactor.SetInteractorStyle(style)
+
+        dlg.Update(3, "Done")
+
+        interactor.Initialize()
+        renderWindow.Render()
+
+        dlg.Destroy()
+
+        interactor.Start()
 
     def on_op_rectify_click(self, evt):
         item = self.m_treectrl.GetFocusedItem()
@@ -522,6 +554,7 @@ class TabStereoDisparity():
             retimg = cv2.hconcat([rl,rr])
             cv2.namedWindow('rectifiedlines', cv2.WINDOW_FREERATIO)
             cv2.imshow('rectifiedlines', retimg)
+            cv2.waitKey(0)
 
         pass
 
