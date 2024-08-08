@@ -374,7 +374,18 @@ class TabStereoDisparity():
                 return
         filepath = self.m_textctrl_param_path.GetValue()
         if os.path.exists(filepath):
-            # 清理数据库中的disparity数据，置灰部分按钮 TODO
+            self.db.modify_data(self.DB_TABLENAME,
+                            f'''SET rectifiedlines=?
+                            ''',
+                            (None,))
+            self.db.modify_data(self.DB_TABLENAME,
+                            f'''SET disparity=?
+                            ''',
+                            (None,))
+            self._clear_image_panel(self.m_panel_disparity)
+            self.m_panel_disparity.Refresh()
+            self._reset_op_btns()
+            self.m_btn_op_disparity.Enable()
             self._refresh_stereo_macher(filepath)
 
     def on_load_param_click(self, evt):
