@@ -18,7 +18,7 @@ import numpy as np
 from ui.components import ImagePanel
 from utils.ophelper import *
 from utils.storage import LocalStorage
-from utils.calib import CalibChessboard, HandEye, load_camera_param, combine_RT, rot_2_quat
+from utils.calib import CalibBoard, HandEye, load_camera_param, combine_RT, rot_2_quat
 from utils.err import CalibErrType
 from loguru import logger
 
@@ -452,7 +452,7 @@ class TabHandEye():
                     row = int(self.m_textctrl_cb_row.GetValue())
                     col = int(self.m_textctrl_cb_col.GetValue())
                     cellsize = float(self.m_textctrl_cb_cellsize.GetValue())
-                    calib_instance = CalibChessboard(row, col, cellsize, use_libcbdet=self.m_checkbox_use_libcbdetect.GetValue())
+                    calib_instance = CalibBoard(row, col, cellsize, use_libcbdet=self.m_checkbox_use_libcbdetect.GetValue())
                     cors = pickle.loads(_cors)
                     calib_instance.draw_corners(img, cors)
             img_w = img.shape[1]
@@ -611,7 +611,7 @@ class TabHandEye():
         cell_p = float(self.m_textctrl_cb_cellsize.GetValue())
         # ax=xb
         he = HandEye()
-        cb = CalibChessboard(row_p, col_p, cell_p, use_libcbdet=self.m_checkbox_use_libcbdetect.GetValue())
+        cb = CalibBoard(row_p, col_p, cell_p, use_libcbdet=self.m_checkbox_use_libcbdetect.GetValue())
 
         # 读取传感器rt(NDI/IMU etc.)
         if self.m_checkbox_cb_rvecflag.IsChecked():

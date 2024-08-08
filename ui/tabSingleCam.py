@@ -19,7 +19,7 @@ import pickle
 
 from utils.ophelper import *
 from utils.storage import LocalStorage
-from utils.calib import CalibChessboard, quat_2_rot, rot_2_quat
+from utils.calib import CalibBoard, quat_2_rot, rot_2_quat
 from utils.err import CalibErrType
 from ui.components import *
 
@@ -340,7 +340,7 @@ class TabSingleCam():
                     cellsize = float(self.m_textCtrl_cellsize.GetValue())
                 # todo 
                 # retrive db's cors
-                calib_instance = CalibChessboard(row, col, cellsize, use_mt=False)
+                calib_instance = CalibBoard(row, col, cellsize, use_mt=False)
                 result = self.db.retrive_data(self.DB_TABLENAME, "cors", f'WHERE filename=\'{filename}\' ')
                 _cors = [c[0] for c in result]
                 cors = pickle.loads(_cors[0])
@@ -503,7 +503,7 @@ class TabSingleCam():
     # 相机校准线程
     def _run_camera_calibration_task(self, row, col, cellsize, results, filelist, dlg):
         # 创建单目校准类
-        calib = CalibChessboard(row, col, cellsize, use_libcbdet=self.m_checkbox_use_libcbdetect.GetValue())
+        calib = CalibBoard(row, col, cellsize, use_libcbdet=self.m_checkbox_use_libcbdetect.GetValue())
         CALIB = calib.mono_calib_parallel if calib.USE_MT is True else calib.mono_calib
         # 执行校准，并得到结果
         ret, mtx, dist, rvecs, tvecs, rpjes, rej_list, cal_list, shape, pts, err = CALIB(

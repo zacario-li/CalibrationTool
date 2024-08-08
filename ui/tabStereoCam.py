@@ -16,7 +16,7 @@ import threading
 import numpy as np
 from utils.storage import LocalStorage
 from ui.components import *
-from utils.calib import CalibChessboard, quat_2_rot, rot_2_quat
+from utils.calib import CalibBoard, quat_2_rot, rot_2_quat
 from utils.err import CalibErrType
 from utils.ophelper import *
 from loguru import logger
@@ -296,7 +296,7 @@ class TabStereoCam():
                 row = int(self.current_row_cors)
                 col = int(self.current_col_cors)
                 cellsize = int(self.current_cellsize)
-                calib_instance = CalibChessboard(row, col, cellsize, self.m_checkbox_use_libcbdetect.GetValue())
+                calib_instance = CalibBoard(row, col, cellsize, self.m_checkbox_use_libcbdetect.GetValue())
                 # retrive db's cors
                 lresult = self.db.retrive_data(self.DB_TABLENAME, "cors", f'WHERE filename=\'{fnames[0]}\' AND cameraid=0')
                 _lcors = [c[0] for c in lresult]
@@ -430,7 +430,7 @@ class TabStereoCam():
         lfilelist = [f[2] for f in left_file_list]
         rfilelist = [f[2] for f in right_file_list]
 
-        calib = CalibChessboard(row, col, cellsize, use_libcbdet=self.m_checkbox_use_libcbdetect.GetValue())
+        calib = CalibBoard(row, col, cellsize, use_libcbdet=self.m_checkbox_use_libcbdetect.GetValue())
         CALIB = calib.stereo_calib_parallel if calib.USE_MT is True else calib.stereo_calib
 
         ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rej_list, calib_list, shape, lpts, rpts, err = CALIB(

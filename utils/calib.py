@@ -1,4 +1,6 @@
+from enum import Enum, auto
 import cv2
+from cv2 import aruco
 import numpy as np
 import pandas as pd
 import os
@@ -11,6 +13,12 @@ from loguru import logger
 from scipy.spatial.transform import Rotation
 from utils.checkerboard import detect_checkerboard
 from utils.err import CalibErrType
+
+# 定义一个枚举类型，包含如下类型: CHESSBORD, CHARUCO
+class CalibPatternType(Enum):
+    CHESSBOARD = 0
+    CHARUCO = 1
+    UNKNOWN = 2
 
 def compute_rotation_angle(ax, xb):
     try:
@@ -33,12 +41,10 @@ def compute_rotation_angle(ax, xb):
         logger.warning(f"Error: {e}")
         return None
 
-
 def combine_RT(R, Tx, Ty, Tz):
     M = np.hstack([R, [[Tx], [Ty], [Tz]]])
     M = np.vstack((M, [0, 0, 0, 1]))  # convert it to homogeneous matrix
     return M
-
 
 def timer_decorator(func):
     def wrapper(*args, **kwargs):
@@ -109,7 +115,6 @@ def load_camera_param(filename: str, need_trans=False, camera_id=False, need_rt=
             return mtx, dist, None, None
         return mtx, dist, np.array(rot2), np.array(trans2)
 
-
 def quat_2_rot(q: np.array):
     q = q / np.linalg.norm(q)
     q0 = q[0]
@@ -131,7 +136,6 @@ def quat_2_rot(q: np.array):
                   [r10, r11, r12],
                   [r20, r21, r22]])
     return R
-
 
 def rot_2_quat(R: np.array):
     # Convert to quaternion
@@ -164,7 +168,6 @@ def rot_2_quat(R: np.array):
         q[3] = 0.25 * S
     return q
 
-
 def euler_2_quat(roll, pitch, yaw):
     q = np.zeros(4)
 
@@ -184,12 +187,10 @@ def euler_2_quat(roll, pitch, yaw):
 
     return q
 
-
 def combine_RT(R, Tx, Ty, Tz):
     M = np.hstack([R, [[Tx], [Ty], [Tz]]])
     M = np.vstack((M, [0, 0, 0, 1]))  # convert it to homogeneous matrix
     return M
-
 
 class HandEye():
     def __init__(self):
@@ -371,8 +372,8 @@ class HandEye():
         return np.linalg.norm(np.asarray(Theta_err))/len(Theta_err)
 
 
-class CalibChessboard():
-    def __init__(self, row, col, cellsize, use_mt: bool = True, use_libcbdet = False):
+class CalibBoard():
+    def __init__(self, row, col, cellsize, use_mt: bool = True, use_libcbdet = False, pattern=CalibPatternType.CHESSBOARD, charuco_dict=aruco.DICT_4X4_1000, charuco_size=3):
         # use libcbdetect
         self.use_libcbdet=use_libcbdet
         # use multi-threading
@@ -383,7 +384,13 @@ class CalibChessboard():
         self.CELLSIZE = cellsize
         self.criteria = (cv2.TERM_CRITERIA_EPS +
                          cv2.TERM_CRITERIA_MAX_ITER, 3000, 0.00001)
-
+        
+        # charuco board
+        self.calib_pattern = pattern
+        if pattern == CalibPatternType.CHARUCO:
+            self.charuco_dict = aruco.getPredefinedDictionary(charuco_dict)
+            self.charuco_board = aruco.CharucoBoard((col, row), cellsize, charuco_size/1000, self.charuco_dict)
+            self.charuco_detector_params = aruco.DetectorParameters()
         # 构建角点真实世界坐标系
         self.objp = np.zeros((self.COL_COR*self.ROW_COR, 3), np.float32)
         self.objp[:, :2] = np.mgrid[0:self.ROW_COR,
@@ -557,6 +564,8 @@ class CalibChessboard():
             else:
                 return False, None
         else:
+            if self.calib_pattern == CalibPatternType.CHARUCO:
+                ret, sub_corners = False, None
             ret, sub_corners = cv2.findChessboardCornersSB(
                 grayimg, (self.ROW_COR, self.COL_COR), cv2.CALIB_CB_NORMALIZE_IMAGE | cv2.CALIB_CB_EXHAUSTIVE | cv2.CALIB_CB_ACCURACY | cv2.CALIB_CB_MARKER)
             if ret is True:
@@ -659,7 +668,7 @@ class CalibChessboard():
 
 
 if __name__ == "__main__":
-    cb = CalibChessboard(9, 12, 5.0)
+    cb = CalibBoard(9, 12, 5.0)
     mtx, dist = load_camera_param('stereoParam12x9.json')
     gray_img = cv2.imread(
         'C:/Users/lzj/Desktop/1013/eyeHand20231013/20231013094245L.png', 0)

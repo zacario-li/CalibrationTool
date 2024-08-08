@@ -14,7 +14,7 @@ import threading
 import numpy as np
 from utils.storage import LocalStorage
 from ui.components import *
-from utils.calib import CalibChessboard, load_camera_param
+from utils.calib import CalibBoard, load_camera_param
 from utils.err import CalibErrType
 from utils.ophelper import *
 from utils.depth import SgbmCpu
@@ -63,16 +63,17 @@ class TabStereoDisparity():
 
     def init_db(self):
         '''
-        |id integer|rootpath text|cameraid int|filename text|disparity blob|
-        |----------|-------------|------------|-------------|--------------|
-        |   0      |c:\data\L    |0           |img1.png     |array bytes   |
-        |   1      |c:\data\R    |1           |img1.png     |array bytes   |
+        |id integer|rootpath text|cameraid int|filename text|disparity blob|rectifiedlines blob|
+        |----------|-------------|------------|-------------|--------------|-------------------|
+        |   0      |c:\data\L    |0           |img1.png     |array bytes   |array bytes        |
+        |   1      |c:\data\R    |1           |img1.png     |array bytes   |array bytes        |
         '''
         TABLE_SQL_STR = '''id INTEGER PRIMARY KEY AUTOINCREMENT,
                             rootpath text,
                             cameraid int,
                             filename text,
-                            disparity blob'''
+                            disparity blob,
+                            rectifiedlines blob'''
         self.DB_FILENAME = ':memory:'
         # self.DB_FILENAME = 'disparity.db'
         self.DB_TABLENAME = 'disparity'
@@ -416,9 +417,9 @@ class TabStereoDisparity():
             self.db.delete_data(self.DB_TABLENAME, f"WHERE 1=1")
             for litem, ritem in zip(lf, rf):
                 self.db.write_data(self.DB_TABLENAME,
-                                   f'null, \'{self.m_left_image_path}\', 0, \'{litem}\', null')
+                                   f'null, \'{self.m_left_image_path}\', 0, \'{litem}\', null, null')
                 self.db.write_data(self.DB_TABLENAME,
-                                   f'null, \'{self.m_right_image_path}\', 1, \'{ritem}\', null')
+                                   f'null, \'{self.m_right_image_path}\', 1, \'{ritem}\', null, null')
 
             # update tree control with new images
             self.update_treectrl()
@@ -486,6 +487,31 @@ class TabStereoDisparity():
             interactor.Start()
 
     def on_op_rectify_click(self, evt):
+        item = self.m_treectrl.GetFocusedItem()
+        lfname = self.m_treectrl.GetItemData(item)[0]
+        rfname = self.m_treectrl.GetItemData(item)[1]
+
+        # draw line
+        l_condi_disp = f"WHERE cameraid=0 AND filename=\'{lfname}\' "
+        r_condi_disp = f"WHERE cameraid=1 AND filename=\'{rfname}\' "
+
+        lr_data = self.db.retrive_data(
+            self.DB_TABLENAME, f'rectifiedlines', l_condi_disp)
+        rr_data = self.db.retrive_data(
+            self.DB_TABLENAME, f'rectifiedlines', r_condi_disp)
+        if lr_data is not None or rr_data is not None:
+            l_recti = pickle.loads(lr_data[0][0])
+            r_recti = pickle.loads(rr_data[0][0])
+        
+            w,h = l_recti.shape[1], l_recti.shape[0]
+            lineheight = int(h/(11))
+            for i in range(10):
+                rl = cv2.line(l_recti, (0, i*lineheight), (w, i*lineheight), (0,255,0), 1)
+                rr = cv2.line(r_recti, (0, i*lineheight), (w, i*lineheight), (0,255,0), 1)
+            retimg = cv2.hconcat([rl,rr])
+            cv2.namedWindow('rectifiedlines', cv2.WINDOW_FREERATIO)
+            cv2.imshow('rectifiedlines', retimg)
+
         pass
 
     def on_op_disparity_click(self, evt):
@@ -569,7 +595,11 @@ class TabStereoDisparity():
                        self.sgbminstance.map1y, cv2.INTER_LINEAR)
         rr = cv2.remap(rimage, self.sgbminstance.map2x,
                        self.sgbminstance.map2y, cv2.INTER_LINEAR)
-        self.disparity_image = self.sgbm_matcher.compute(rl, rr)
+        
+        self.rectified_left_image = rl
+        self.rectified_right_image = rr
+
+        self.disparity_image = self.sgbm_matcher.compute(rl, rr)            
 
         wx.CallAfter(self.on_disparity_done, dlg, lfname, rfname)
 
@@ -582,6 +612,20 @@ class TabStereoDisparity():
                             WHERE cameraid=0 AND filename=\'{lfname}\'
                             ''',
                             (disparity_bytes,))
+        
+        # save rectified into db
+        lr_bytes = pickle.dumps(self.rectified_left_image)
+        rr_bytes = pickle.dumps(self.rectified_right_image)
+        self.db.modify_data(self.DB_TABLENAME,
+                            f'''SET rectifiedlines=?
+                            WHERE cameraid=0 AND filename=\'{lfname}\'
+                            ''',
+                            (lr_bytes,))
+        self.db.modify_data(self.DB_TABLENAME,
+                            f'''SET rectifiedlines=?
+                            WHERE cameraid=1 AND filename=\'{rfname}\'
+                            ''',
+                            (rr_bytes,))
 
         dlg.Update(10)
         disparity_display = cv2.normalize(self.disparity_image.astype(
