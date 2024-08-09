@@ -480,15 +480,26 @@ class TabStereoDisparity():
 
         color_src = cv2.cvtColor(self.rectified_left_image, cv2.COLOR_BGR2RGB)
 
-        for y in range(h):
-            for x in range(w):
-                point = self.depth_image[y, x]
-                if not np.isfinite(point[2]) or point[2] < min_depth or point[2] > max_depth:
-                    continue
-                points.InsertNextPoint(point[0], -point[1], -point[2])
-                colors.InsertNextTuple(color_src[y,x])
+        logger.debug('start generating points')
+        # for y in range(h):
+        #     for x in range(w):
+        #         point = self.depth_image[y, x]
+        #         if not np.isfinite(point[2]) or point[2] < min_depth or point[2] > max_depth:
+        #             continue
+        #         points.InsertNextPoint(point[0], -point[1], -point[2])
+        #         colors.InsertNextTuple(color_src[y,x])
+        mask = valid_mask & (depths >= min_depth) & (depths <= max_depth)
+        valid_points = self.depth_image[mask]
+        valid_colors = color_src[mask]
+
+        for point, color in zip(valid_points, valid_colors):
+            points.InsertNextPoint(point[0], -point[1], -point[2])
+            colors.InsertNextTuple(color)
+        logger.debug('points generation finished')
+
         wx.CallAfter(self.on_op_depth_done, [dlg, points, colors])
 
+    @timer_decorator
     def on_op_depth_done(self, args:list):
         dlg, points, colors = args[0], args[1], args[2]
         dlg.Update(2, "Prepare rendering")
