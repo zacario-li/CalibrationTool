@@ -556,6 +556,12 @@ class TabHandEye():
 
     def _handeye_calibration_task_done(self, dlg, data):
         ret, r_c2g, t_c2g, r_e, t_e, results = data
+        if ret is CalibErrType.CAL_DATA_CSV_FORMAT_ERR:
+            dlg.Destroy()
+            wx.MessageBox(f"Calibration failed:{CalibErrType.to_string(ret)}","Notice",wx.OK | wx.ICON_ERROR)
+            self.m_statictext_calib_err_result.SetLabel(f"ERROR: {CalibErrType.to_string(ret)}:\n {results}")
+            return
+        
         if self.m_radioBox_calib_type.GetSelection() == 0:
             # 保存reject标识
             iresults = self.db.retrive_data(self.DB_TABLENAME, f'rootpath, filename', '')
@@ -614,11 +620,15 @@ class TabHandEye():
         cb = CalibBoard(row_p, col_p, cell_p, use_libcbdet=self.m_checkbox_use_libcbdetect.GetValue())
 
         # 读取传感器rt(NDI/IMU etc.)
-        if self.m_checkbox_cb_rvecflag.IsChecked():
-            r_g2n, t_g2n = he.generate_gripper2base_with_rvec_txt(a_p)
-        else:
-            r_g2n, t_g2n = he.generate_gripper2ndi_with_file(a_p, sensor_only=self.m_checkBox_rotation_only.IsChecked(
-            ), randomtest=self.m_checkBox_rotation_only.IsChecked())
+        try: 
+            if self.m_checkbox_cb_rvecflag.IsChecked():
+                r_g2n, t_g2n = he.generate_gripper2base_with_rvec_txt(a_p)
+            else:
+                r_g2n, t_g2n = he.generate_gripper2ndi_with_file(a_p, sensor_only=self.m_checkBox_rotation_only.IsChecked(
+                ), randomtest=self.m_checkBox_rotation_only.IsChecked())
+        except Exception as e:
+            logger.debug(f'Error loading sensor rt: {e}')
+            return CalibErrType.CAL_DATA_CSV_FORMAT_ERR, None, None, None, None, e
         # 加载相机参数
         mtx, dist = load_camera_param(
             c_p, self.m_checkbox_cb_transflag.IsChecked(), self.m_checkbox_camera_id.IsChecked())
