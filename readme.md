@@ -10,3 +10,4 @@
 - [ ]   Support FishEye and 360
 - [x]   Support SGBM/SGM stereo disparity estimation
 - [ ]   Support SFM
+- [ ]   Provide easy to use c++ api
