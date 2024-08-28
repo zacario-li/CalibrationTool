@@ -23,6 +23,7 @@ from ui.vtkpanel import VTKPanel
 import vtk
 from vtk.util import numpy_support
 import pickle
+import open3d as o3d
 
 DISP_IMAGE_VIEW_W = 576
 DISP_IMAGE_VIEW_H = 384
@@ -63,17 +64,18 @@ class TabStereoDisparity():
 
     def init_db(self):
         '''
-        |id integer|rootpath text|cameraid int|filename text|disparity blob|rectifiedlines blob|
-        |----------|-------------|------------|-------------|--------------|-------------------|
-        |   0      |c:\data\L    |0           |img1.png     |array bytes   |array bytes        |
-        |   1      |c:\data\R    |1           |img1.png     |array bytes   |array bytes        |
+        |id integer|rootpath text|cameraid int|filename text|disparity blob|rectifiedlines blob|pointcloud blob|
+        |----------|-------------|------------|-------------|--------------|-------------------|---------------|
+        |   0      |c:\data\L    |0           |img1.png     |array bytes   |array bytes        |array bytes    |
+        |   1      |c:\data\R    |1           |img1.png     |array bytes   |array bytes        |array bytes    |
         '''
         TABLE_SQL_STR = '''id INTEGER PRIMARY KEY AUTOINCREMENT,
                             rootpath text,
                             cameraid int,
                             filename text,
                             disparity blob,
-                            rectifiedlines blob'''
+                            rectifiedlines blob,
+                            pointcloud blob'''
         self.DB_FILENAME = ':memory:'
         # self.DB_FILENAME = 'disparity.db'
         self.DB_TABLENAME = 'disparity'
@@ -228,7 +230,6 @@ class TabStereoDisparity():
             st_zlimit, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 2)
         m_layout_sgbm_params2.Add(
             self.m_textctrl_sgbm_zlimit, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 2)
-        
 
         m_layout_sgbm.Add(m_layout_sgbm_mode, 0, wx.EXPAND | wx.ALL, 1)
         m_layout_sgbm.Add(m_layout_sgbm_params1, 0, wx.EXPAND | wx.ALL, 1)
@@ -292,7 +293,7 @@ class TabStereoDisparity():
         self.tab.Bind(wx.EVT_TREE_SEL_CHANGING,
                       self.on_tree_item_selected,
                       self.m_treectrl)
-        # sgbm parameter changing event 
+        # sgbm parameter changing event
         self.tab.Bind(wx.EVT_RADIOBOX, self.on_sgbm_parameter_change,
                       self.m_radioBox_sgbm_mode)
         self.tab.Bind(wx.EVT_TEXT, self.on_sgbm_parameter_change,
@@ -372,7 +373,6 @@ class TabStereoDisparity():
         else:
             sr = int(self.m_textctrl_sgbm_speckleRange.GetValue())
 
-
         self.sgbminstance = SgbmCpu(filepath, [
                                     mode, blksize, P1, P2, minDisp, numDisp, disp12MaxDiff, preFCap, uratio, sws, sr])
         self.sgbm_matcher = self.sgbminstance.stereo
@@ -384,13 +384,13 @@ class TabStereoDisparity():
         filepath = self.m_textctrl_param_path.GetValue()
         if os.path.exists(filepath):
             self.db.modify_data(self.DB_TABLENAME,
-                            f'''SET rectifiedlines=?
+                                f'''SET rectifiedlines=?
                             ''',
-                            (None,))
+                                (None,))
             self.db.modify_data(self.DB_TABLENAME,
-                            f'''SET disparity=?
+                                f'''SET disparity=?
                             ''',
-                            (None,))
+                                (None,))
             self._clear_image_panel(self.m_panel_disparity)
             self.m_panel_disparity.Refresh()
             self._reset_op_btns()
@@ -437,9 +437,9 @@ class TabStereoDisparity():
             self.db.delete_data(self.DB_TABLENAME, f"WHERE 1=1")
             for litem, ritem in zip(lf, rf):
                 self.db.write_data(self.DB_TABLENAME,
-                                   f'null, \'{self.m_left_image_path}\', 0, \'{litem}\', null, null')
+                                   f'null, \'{self.m_left_image_path}\', 0, \'{litem}\', null, null, null')
                 self.db.write_data(self.DB_TABLENAME,
-                                   f'null, \'{self.m_right_image_path}\', 1, \'{ritem}\', null, null')
+                                   f'null, \'{self.m_right_image_path}\', 1, \'{ritem}\', null, null, null')
 
             # update tree control with new images
             self.update_treectrl()
@@ -470,7 +470,8 @@ class TabStereoDisparity():
         valid_depths = depths[valid_mask]
 
         min_depth = np.min(valid_depths)
-        max_depth = min(np.max(valid_depths), float(self.m_textctrl_sgbm_zlimit.GetValue()))
+        max_depth = min(np.max(valid_depths), float(
+            self.m_textctrl_sgbm_zlimit.GetValue()))
         depth_range = max_depth - min_depth
 
         points = vtk.vtkPoints()
@@ -500,9 +501,19 @@ class TabStereoDisparity():
         wx.CallAfter(self.on_op_depth_done, [dlg, points, colors])
 
     @timer_decorator
-    def on_op_depth_done(self, args:list):
+    def on_op_depth_done(self, args: list):
         dlg, points, colors = args[0], args[1], args[2]
         dlg.Update(2, "Prepare rendering")
+        '''
+        write points into db
+        '''
+        pcd = self.vtkpoints_to_pcd(points)
+        pcdblob = self.pointcloud_to_blob(pcd)
+        self.db.modify_data(self.DB_TABLENAME,
+                            f'''SET pointcloud=?
+                            ''',
+                            (pcdblob,))
+
         polydata = vtk.vtkPolyData()
         polydata.SetPoints(points)
         polydata.GetPointData().SetScalars(colors)
@@ -540,6 +551,34 @@ class TabStereoDisparity():
 
         interactor.Start()
 
+    def vtkpoints_to_pcd(self, points):
+        num_points = points.GetNumberOfPoints()
+        points_array = np.zeros((num_points, 3), dtype=np.float64)
+        for i in range(num_points):
+            points_array[i] = points.GetPoint(i)
+
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(points_array)
+
+        # o3d.io.write_point_cloud(filename, pcd)
+        return pcd
+
+    def pointcloud_to_blob(self, pcd):
+        # Convert point cloud to numpy array
+        points = np.asarray(pcd.points)
+        # Convert numpy array to bytes
+        return points.tobytes()
+
+    def blob_to_pointcloud(self, blob):
+        # Convert bytes to numpy array
+        points = np.frombuffer(blob, dtype=np.float64).reshape(-1, 3)
+        # Create a writeable copy of the array
+        points = np.array(points, copy=True)
+        # Create point cloud from numpy array
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(points)
+        return pcd
+
     def on_op_rectify_click(self, evt):
         item = self.m_treectrl.GetFocusedItem()
         lfname = self.m_treectrl.GetItemData(item)[0]
@@ -556,13 +595,15 @@ class TabStereoDisparity():
         if lr_data is not None or rr_data is not None:
             l_recti = pickle.loads(lr_data[0][0])
             r_recti = pickle.loads(rr_data[0][0])
-        
-            w,h = l_recti.shape[1], l_recti.shape[0]
+
+            w, h = l_recti.shape[1], l_recti.shape[0]
             lineheight = int(h/(11))
             for i in range(10):
-                rl = cv2.line(l_recti, (0, i*lineheight), (w, i*lineheight), (0,255,0), 1)
-                rr = cv2.line(r_recti, (0, i*lineheight), (w, i*lineheight), (0,255,0), 1)
-            retimg = cv2.hconcat([rl,rr])
+                rl = cv2.line(l_recti, (0, i*lineheight),
+                              (w, i*lineheight), (0, 255, 0), 1)
+                rr = cv2.line(r_recti, (0, i*lineheight),
+                              (w, i*lineheight), (0, 255, 0), 1)
+            retimg = cv2.hconcat([rl, rr])
             cv2.namedWindow('rectifiedlines', cv2.WINDOW_FREERATIO)
             cv2.imshow('rectifiedlines', retimg)
             cv2.waitKey(0)
@@ -600,6 +641,14 @@ class TabStereoDisparity():
                 np.uint8), None, 0, 255, cv2.NORM_MINMAX)
             cv2.imwrite("disparity.png", disparity_disp)
             wx.MessageBox(f"Disparity saved to disparity.png!", "Info", wx.OK)
+
+        pcd_data = self.db.retrive_data(
+            self.DB_TABLENAME, f'pointcloud', condi_disp)
+        if pcd_data[0][0] is not None:
+            pcd = self.blob_to_pointcloud(pcd_data[0][0])
+            o3d.io.write_point_cloud(f"pcd_{lfname}.pcd", pcd)
+            wx.MessageBox(
+                f"Point cloud saved to pcd_{lfname}.pcd!", "Info", wx.OK)
 
     def on_tree_item_selected(self, evt):
         id = evt.GetItem()
@@ -650,11 +699,11 @@ class TabStereoDisparity():
                        self.sgbminstance.map1y, cv2.INTER_LINEAR)
         rr = cv2.remap(rimage, self.sgbminstance.map2x,
                        self.sgbminstance.map2y, cv2.INTER_LINEAR)
-        
+
         self.rectified_left_image = rl
         self.rectified_right_image = rr
 
-        self.disparity_image = self.sgbm_matcher.compute(rl, rr)            
+        self.disparity_image = self.sgbm_matcher.compute(rl, rr)
 
         wx.CallAfter(self.on_disparity_done, dlg, lfname, rfname)
 
@@ -667,7 +716,7 @@ class TabStereoDisparity():
                             WHERE cameraid=0 AND filename=\'{lfname}\'
                             ''',
                             (disparity_bytes,))
-        
+
         # save rectified into db
         lr_bytes = pickle.dumps(self.rectified_left_image)
         rr_bytes = pickle.dumps(self.rectified_right_image)
