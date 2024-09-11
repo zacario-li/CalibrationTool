@@ -14,11 +14,12 @@ from scipy.spatial.transform import Rotation
 from utils.checkerboard import detect_checkerboard
 from utils.err import CalibErrType
 
-# 定义一个枚举类型，包含如下类型: CHESSBORD, CHARUCO
+# 定义一个枚举类型，包含如下类型: CHESSBORD, CHARUCO, APRILTAG
 class CalibPatternType(Enum):
     CHESSBOARD = 0
     CHARUCO = 1
-    UNKNOWN = 2
+    APRILTAG = 2
+    UNKNOWN = 3
 
 def compute_rotation_angle(ax, xb):
     try:
@@ -666,6 +667,10 @@ class CalibBoard():
         else:
             return (lfname, rfname, lcors, rcors, 'calibrated')
 
+
+class CubeCalibTarget():
+    def __init__(self, size=0.03):
+        pass 
 
 if __name__ == "__main__":
     cb = CalibBoard(9, 12, 5.0)
