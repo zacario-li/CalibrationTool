@@ -384,7 +384,7 @@ class CalibBoard():
         self.COL_COR = col-1
         self.CELLSIZE = cellsize
         self.criteria = (cv2.TERM_CRITERIA_EPS +
-                         cv2.TERM_CRITERIA_MAX_ITER, 3000, 0.00001)
+                         cv2.TERM_CRITERIA_MAX_ITER, 300000, 1e-16)
         
         # charuco board
         self.calib_pattern = pattern
@@ -422,7 +422,7 @@ class CalibBoard():
             return False, None, None, None, None, None, None, None, None, None, CalibErrType.CAL_CORNER_DET_ERR
 
         ret, mtx, dist, rvecs, tvecs, stdintri, stdextri, perverrs = cv2.calibrateCameraExtended(
-            objpoints, imgpoints, gray.shape[::-1], None, None)        
+            objpoints, imgpoints, gray.shape[::-1], None, None, criteria=self.criteria)        
 
         # TODO evaluate the results
         return ret, mtx, dist, rvecs, tvecs, perverrs, rejected_files, calibrated_files, gray.shape[::-1], imgpoints, CalibErrType.CAL_OK
@@ -455,7 +455,7 @@ class CalibBoard():
             return False, None, None, None, None, None, None, None, None, None, CalibErrType.CAL_CORNER_DET_ERR
 
         ret, mtx, dist, rvecs, tvecs, stdintri, stdextri, perverrs = cv2.calibrateCameraExtended(
-            objpoints, imgpoints, image_for_shape.shape[::-1], None, None)
+            objpoints, imgpoints, image_for_shape.shape[::-1], None, None, criteria=self.criteria)
 
         # TODO evaluate the results
         return ret, mtx, dist, rvecs, tvecs, perverrs, rejected_files, calibrated_files, image_for_shape.shape[::-1], imgpoints, CalibErrType.CAL_OK
@@ -487,9 +487,9 @@ class CalibBoard():
             return False, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, CalibErrType.CAL_CORNER_DET_ERR
         # single calibrate
         ret_l, mtx_l, dist_l, rvecs_l, tvecs_l, stdintri_l, stdextri_l, pererr = cv2.calibrateCameraExtended(
-            objpoints, imgpoints_left, leftimg.shape[::-1], None, None)
+            objpoints, imgpoints_left, leftimg.shape[::-1], None, None, criteria=self.criteria)
         ret_r, mtx_r, dist_r, rvecs_r, tvecs_r, stdintri_r, stdextri_r, pererr = cv2.calibrateCameraExtended(
-            objpoints, imgpoints_right, rightimg.shape[::-1], None, None)
+            objpoints, imgpoints_right, rightimg.shape[::-1], None, None, criteria=self.criteria)
         # stereo calibrate
         # ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F = cv2.stereoCalibrate(
         #     objpoints, imgpoints_left, imgpoints_right, mtx_l, dist_l, mtx_r, dist_r, leftimg.shape[::-1], criteria=self.criteria)
@@ -531,9 +531,9 @@ class CalibBoard():
         
         # single calibrate for each camera
         ret_l, mtx_l, dist_l, rvecs_l, tvecs_l, stdintri_l, stdextri_l, pererr = cv2.calibrateCameraExtended(
-            objpoints, imgpoints_left, image_for_shape.shape[::-1], None, None)
+            objpoints, imgpoints_left, image_for_shape.shape[::-1], None, None, criteria=self.criteria)
         ret_r, mtx_r, dist_r, rvecs_r, tvecs_r, stdintri_r, stdextri_r, pererr = cv2.calibrateCameraExtended(
-            objpoints, imgpoints_right, image_for_shape.shape[::-1], None, None)
+            objpoints, imgpoints_right, image_for_shape.shape[::-1], None, None, criteria=self.criteria)
 
         # 创建旋转矩阵和平移向量的初始值
         R = np.eye(3)  # 3x3的单位矩阵
