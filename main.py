@@ -1,5 +1,6 @@
 import wx
 from ui.mainwindow import MainWindow
+from loguru import logger
 
 
 class CalibrationApp(wx.App):
@@ -10,6 +11,14 @@ class CalibrationApp(wx.App):
         return True
 
 
+def setup_logging():
+    logger.add("app.log", 
+               rotation="10 MB",
+               format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}",
+               level="INFO")
+
+
 if __name__ == '__main__':
+    setup_logging()
     app = CalibrationApp()
     app.MainLoop()

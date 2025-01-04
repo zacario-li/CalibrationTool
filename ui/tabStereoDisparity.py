@@ -19,9 +19,9 @@ from utils.err import CalibErrType
 from utils.ophelper import *
 from utils.depth import SgbmCpu
 from loguru import logger
-from ui.vtkpanel import VTKPanel
+# from ui.vtkpanel import VTKPanel
 import vtk
-from vtk.util import numpy_support
+# from vtk.util import numpy_support
 import pickle
 import open3d as o3d
 

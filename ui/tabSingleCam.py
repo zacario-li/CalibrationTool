@@ -12,7 +12,6 @@ import sys
 import threading
 import cv2
 import numpy as np
-import wx
 import json
 from loguru import logger
 import pickle
@@ -21,7 +20,7 @@ from utils.ophelper import *
 from utils.storage import LocalStorage
 from utils.calib import CalibBoard, quat_2_rot, rot_2_quat
 from utils.err import CalibErrType
-from ui.components import *
+from ui.components import * # wx is already imported through components
 
 IMAGE_VIEW_W = 800
 IMAGE_VIEW_H = 600
