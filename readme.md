@@ -28,3 +28,6 @@ Use [Calib.io](https://calib.io/pages/camera-calibration-pattern-generator) to g
 - [ ]   Support SFM
 - [ ]   Provide easy to use c++ api
 
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=zacario-li/CalibrationTool&type=Date)](https://www.star-history.com/#zacario-li/CalibrationTool&Date)
