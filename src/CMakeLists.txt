@@ -8,7 +8,17 @@ add_executable(calibration_tool_app
     ui/tabs/tab_stereo_cam.cpp
     ui/tabs/tab_hand_eye.cpp
     ui/tabs/tab_stereo_disparity.cpp
-    # ui/components/image_panel.cpp
+    core/common/file_utils.cpp
+    core/calib/transformation_utils.cpp
+    core/calib/calib_board.cpp
+    core/calib/hand_eye_calibration.cpp
+    core/detectors/custom_checkerboard_detector.cpp
+    core/depth_processing/sgbm_processor.cpp
+    core/common/storage_service.cpp
+    ui/components/custom_events.cpp
+    ui/components/image_panel.cpp
+    ui/components/details_image_panel.cpp
+    ui/dialogs/stereo_file_loader_dialog.cpp
     # ...
     # core/calib/calibration_algorithms.cpp
     # ...
@@ -16,17 +26,19 @@ add_executable(calibration_tool_app
 
 # Include directories
 target_include_directories(calibration_tool_app PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}      # For headers in src/
+    ${CMAKE_CURRENT_SOURCE_DIR}      # For headers in src/ (e.g. app.h, ui/main_window.h)
+                                     # and allows src/core/common for core/common/file_utils.h
+    "${CMAKE_SOURCE_DIR}/src"        # To find core/common/file_utils.h as <core/common/file_utils.h>
     ${wxWidgets_INCLUDE_DIRS}
     ${OpenCV_INCLUDE_DIRS}
     ${VTK_INCLUDE_DIRS}
     ${Open3D_INCLUDE_DIRS}
     ${SQLite3_INCLUDE_DIRS}
     # ${Eigen3_INCLUDE_DIRS} # If found as package
-    # Add include dirs for spdlog, nlohmann_json if needed (often handled by their own CMake targets if added as subdir)
+    # Add include dirs for spdlog if needed (often handled by their own CMake targets if added as subdir)
     "${CMAKE_SOURCE_DIR}/third_party/eigen" # Example if Eigen is just headers in third_party
     "${CMAKE_SOURCE_DIR}/third_party/spdlog/include" # Example for spdlog headers
-    "${CMAKE_SOURCE_DIR}/third_party/nlohmann_json/include" # Example for nlohmann_json headers
+    "${CMAKE_SOURCE_DIR}/third_party/nlohmann_json/single_include" # For nlohmann_json
 )
 
 # Link libraries
