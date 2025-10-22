@@ -5,4 +5,4 @@ numpy
 scipy
 pandas
 open3d
-opencv-python>=4.5.5
+opencv-python
