@@ -1,3 +1,7 @@
+import os
+
+os.environ['GTK_THEME'] = 'Adwaita'
+
 import wx
 from ui.mainwindow import MainWindow
 from loguru import logger
