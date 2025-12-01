@@ -76,6 +76,7 @@ class TabHandEye():
         self.m_radioBox_calib_type = wx.RadioBox(self.tab, wx.ID_ANY, u"Calib Type", wx.DefaultPosition,
                                                  wx.DefaultSize, m_radioBoxChoices_calib_type, 1, wx.RA_SPECIFY_ROWS)
         self.m_radioBox_calib_type.SetSelection(0)
+        self.m_radioBox_calib_type.Disable()
         m_layout_he_type.Add(self.m_radioBox_calib_type, 0,
                              wx.ALIGN_CENTER_VERTICAL | wx.ALL, 5)
 
@@ -290,9 +291,10 @@ class TabHandEye():
 
     def _update_btns(self):
         # check if A/B/Cam is ready, then enable the calib button
-        a_p = self.m_textctrl_load_a_path.GetValue()
-        b_p = self.m_textctrl_load_b_path.GetValue()
-        c_p = self.m_textctrl_cam_param_path.GetValue()
+        # a_p = self.m_textctrl_load_a_path.GetValue()
+        a_p = self.m_textctrl_load_a_path.GetLabel()
+        b_p = self.m_textctrl_load_b_path.GetLabel()
+        c_p = self.m_textctrl_cam_param_path.GetLabel()
         col_p = self.m_textctrl_cb_col.GetValue()
         row_p = self.m_textctrl_cb_row.GetValue()
         cell_p = self.m_textctrl_cb_cellsize.GetValue()
@@ -546,13 +548,14 @@ class TabHandEye():
         thread.start()
 
     def _run_handeye_calibration_task(self, dlg, images):
-        if self.m_radioBox_calib_type.GetSelection() == 0:
+        if self.m_radioBox_calib_he_type.GetSelection() == 0:
             ret, r_c2g, t_c2g, r_e, t_e, results = self.do_axxb_calib(images)
             wx.CallAfter(self._handeye_calibration_task_done,
                          dlg, (ret, r_c2g, t_c2g, r_e, t_e, results))
         else:
-            self.do_axzb_calib()
-            wx.CallAfter(self._handeye_calibration_task_done, dlg, (0, 0, 0, 0, 0, 0))
+            ret, r_c2w, t_c2w, r_e, t_e, results = self.do_axxb_calib(images)
+            wx.CallAfter(self._handeye_calibration_task_done, 
+                        dlg, (ret, r_c2w, t_c2w, r_e, t_e, results))
 
     def _handeye_calibration_task_done(self, dlg, data):
         ret, r_c2g, t_c2g, r_e, t_e, results = data
@@ -609,9 +612,9 @@ class TabHandEye():
         self.m_btn_save.Enable()
 
     def do_axxb_calib(self, images):
-        a_p = self.m_textctrl_load_a_path.GetValue()
-        b_p = self.m_textctrl_load_b_path.GetValue()
-        c_p = self.m_textctrl_cam_param_path.GetValue()
+        a_p = self.m_textctrl_load_a_path.GetLabel()
+        b_p = self.m_textctrl_load_b_path.GetLabel()
+        c_p = self.m_textctrl_cam_param_path.GetLabel()
         col_p = int(self.m_textctrl_cb_col.GetValue())
         row_p = int(self.m_textctrl_cb_row.GetValue())
         cell_p = float(self.m_textctrl_cb_cellsize.GetValue())
@@ -663,9 +666,23 @@ class TabHandEye():
             logger.warning("g2n size not match b2c")
             return  CalibErrType.CAL_DATA_SIZE_NOT_MATCH, None, None, None, None, results
 
-        r_c2g, t_c2g, r_e, t_e = he.calib_axxb(
-            r_g2n, t_g2n, R_b2c, t_b2c, method_id)
-        return CalibErrType.CAL_OK, r_c2g, t_c2g, r_e, t_e, results
+        R_c2b, t_c2b = [], []
+        for R, t in zip(R_b2c, t_b2c):
+            R_inv = R.T
+            t_inv = -R_inv @ t
+            R_c2b.append(R_inv)
+            t_c2b.append(t_inv)
+        
+        if self.m_radioBox_calib_he_type.GetSelection() == 0:   
+            # eye in hand 
+            r_c2g, t_c2g, r_e, t_e = he.calib_axxb(
+                r_g2n, t_g2n, R_b2c, t_b2c, method_id)
+            return CalibErrType.CAL_OK, r_c2g, t_c2g, r_e, t_e, results
+        else:
+            # eye to hand
+            r_c2w, t_c2w, r_e, t_e = he.calib_axxb(
+                r_g2n, t_g2n, R_c2b, t_c2b, method_id)
+            return CalibErrType.CAL_OK, r_c2w, t_c2w, r_e, t_e, results
 
     def do_axzb_calib(self):
         pass
