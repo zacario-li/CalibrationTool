@@ -1,3 +1,5 @@
+/* Camera Calibration Tool - Web Version Custom Styles */
+
 body {
     background-color: #f8f9fa;
 }
@@ -7,7 +9,7 @@ body {
 }
 
 .card {
-    transition: transform 0.2s ease;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
     cursor: pointer;
 }
 
@@ -24,14 +26,18 @@ body {
 
 .btn-yellow:hover {
     background-color: #e0a800;
-    color: #212529;
 }
 
 .form-label {
     font-weight: 500;
-    margin-bottom: 0.3rem;
 }
 
 .shadow-sm {
     box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
+}
+
+.spinner-border {
+    display: inline-block;
+    width: 2rem;
+    height: 2rem;
 }

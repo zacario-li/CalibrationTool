@@ -9,9 +9,10 @@ A web-based camera calibration tool supporting:
 ## Prerequisites
 
 - Python 3.8+
-- Flask 3.0+
-- OpenCV 4.5+
-- numpy 1.24+
+- Flask >= 3.0
+- OpenCV >= 4.5
+- numpy >= 1.24
+- loguru >= 0.7
 
 ## Installation
 
@@ -33,56 +34,15 @@ python app.py
 webapp/
   ├── app.py                # Flask application
   ├── config.py             # Configuration
-  ├── routes.py            # API routes
-  ├── requirements.txt     # Pip dependencies
-  ├── static/              # Static files, assets
+  ├── routes.py             # API routes
+  ├── requirements.txt      # Dependencies
+  ├── static/               # Static files
   │   └── css/
-  ├── templates/           # HTML templates
+  ├── templates/            # HTML templates
   │   ├── base.html
-  │   ├── index.html      # Main page
+  │   ├── index.html
   │   ├── mono_calibration.html
   │   ├── stereo_calibration.html
   │   ├── handeye_calibration.html
   │   └── disparity.html
-  └── uploads/             # Upload storage
-```
-
-## API Endpoints
-
-| Method | Endpoint | Description |
-|-------|----------|-------------|
-| GET | / | Home page |
-| GET | /calibration/mono | Mono camera calibration page |
-| POST | /api/mono/calibrate | Perform mono calibration |
-| GET | /calibration/stereo | Stereo calibration page |
-| POST | /api/stereo/calibrate | Perform stereo calibration |
-| GET | /calibration/handeye | Hand-eye calibration page |
-| GET | /calibration/disparity | Stereo disparity page |
-
-## Calibration API
-
-### Mono Calibration
-
-**POST** `/api/mono/calibrate`
-
-**Parameters:**
-- `rows` (integer): Checkerboard rows (default: 10)
-- `cols` (integer): Checkerboard columns (default: 7)
-- `cellsize` (float): Cell size in mm (default: 1.0)
-- `files` (multiple): Calibration images
-
-**Response:**
-```json
-{
-    "success": true,
-    "intrinsic": [...],
-    "distortion": [...],
-    "error": 0.0,
-    "rvecs": [...],
-    "tvecs": [...],
-    "shape": [width, height],
-    "reproj_error": 0.123,
-    "processed": 15,
-    "rejected": []
-}
-```
+  └── uploads/              # Temporary storage
