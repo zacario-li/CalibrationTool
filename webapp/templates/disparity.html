@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stereo Disparity</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-warning">
+        <span class="navbar-brand">Stereo Disparity Computation</span>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="card shadow">
+            <div class="card-body">
+                <form id="disparityForm" enctype="multipart/form-data">
+                    <div class="row">
+                        <div class="col-6">
+                            <label>Left Image</label>
+                            <input type="file" id="leftImage" class="form-control">
+                        </div>
+                        <div class="col-6">
+                            <label>Right Image</label>
+                            <input type="file" id="rightImage" class="form-control">
+                        </div>
+                    </div>
+
+                    <div class="row mt-3">
+                        <div class="col-3">
+                            <label>Algorithm</label>
+                            <select id="algorithm" class="form-select">
+                                <option value="block_match">Block Matching</option>
+                                <option value="sncc">S-NCC</option>
+                                <option value="pbo">PBO</option>
+                            </select>
+                        </div>
+                        <div class="col-3">
+                            <label>Capability Setting</label>
+                            <select id="capabilitySetting" class="form-select">
+                                <option value="-32">-32</option>
+                                <option value="16">16</option>
+                            </select>
+                        </div>
+                        <div class="col-3">
+                            <label>Disparity Storage</label>
+                            <select id="storageSetting" class="form-select">
+                                <option value="16">16-bit</option>
+                                <option value="32">32-bit</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="text-center mt-3">
+                        <button class="btn btn-yellow btn-lg text-dark">
+                            Compute Disparity
+                        </button>
+                    </div>
+
+                    <div class="mt-4">
+                        <h6>Disparity Image</h6>
+                        <img id="disparity" class="img-fluid">
+                    </div>
+
+                    <div class="text-center mt-3">
+                        <button id="download" class="btn btn-primary" disabled>
+                            Download Disparity
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

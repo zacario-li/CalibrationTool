@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mono Camera Calibration</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-dark bg-primary">
+        <div class="container">
+            <span class="navbar-brand">Mono Camera Calibration</span>
+            <ul class="navbar-nav">
+                <li class="nav-item"><a class="nav-link" href="/">Home</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-4">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">Configuration</h5>
+
+                        <div class="mb-3">
+                            <label class="form-label">Upload Calibration Images</label>
+                            <input type="file" id="imageFiles" class="form-control" multiple accept=".png,.jpg,.jpeg,.bmp,.webp">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Checkerboard Rows</label>
+                            <input type="number" id="rows" class="form-control" value="10" min="2">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Checkerboard Columns</label>
+                            <input type="number" id="cols" class="form-control" value="7" min="2">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Cell Size (mm)</label>
+                            <input type="number" step="0.01" id="cellsize" class="form-control" value="1.0">
+                        </div>
+
+                        <button id="calibrateBtn" class="btn btn-primary w-100">Calibrate</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-8">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">Results</h5>
+                        <div id="calibrationResults"></div>
+                        <div id="imageDisplay"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('calibrateBtn').addEventListener('click', async function() {
+            const files = document.getElementById('imageFiles').files;
+            if (files.length === 0) {
+                alert('Please select calibration images');
+                return;
+            }
+
+            const formData = new FormData();
+            for (let i = 0; i < files.length; i++) {
+                formData.append('files', files[i]);
+            }
+            formData.append('rows', document.getElementById('rows').value);
+            formData.append('cols', document.getElementById('cols').value);
+            formData.append('cellsize', document.getElementById('cellsize').value);
+
+            this.disabled = true;
+            const resultsDiv = document.getElementById('calibrationResults');
+            resultsDiv.innerHTML = '<div class="spinner-border text-primary" role="status"></div> <span>Calibrating...</span>';
+
+            try {
+                const response = await fetch('/api/mono/calibrate', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    resultsDiv.innerHTML = `
+                        <div class="alert alert-success">Calibration Successful!</div>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                } else {
+                    resultsDiv.innerHTML = `<div class="alert alert-danger">Error: ${data.error}</div>`;
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+            }
+            this.disabled = false;
+        });
+    </script>
+</body>
+</html>

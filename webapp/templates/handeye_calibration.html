@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hand-Eye Calibration</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-warning">
+        <span class="navbar-brand">Hand-Eye Calibration</span>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="card shadow">
+            <div class="card-body">
+                <h5>Load Calibration Parameters</h5>
+                <form id="handeyeForm">
+                    <div class="mb-3">
+                        <label>Camera Parameters File</label>
+                        <select id="cameraParams" class="form-select">
+                            <option>Select a file...</option>
+                        </select>
+                    </div>
+
+                    <div class="text-center mt-3">
+                        <button class="btn btn-warning btn-lg text-dark">
+                            Load Parameters
+                        </button>
+                    </div>
+                </form>
+
+                <div class="mt-4">
+                    <h5>Robot Pose Configuration</h5>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Pose</th>
+                                <th class="text-center">Collect</th>
+                                <th>Camera Target Position</th>
+                            </tr>
+                        </thead>
+                        <tbody id="poseTable">
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="mt-4 text-center">
+                    <button class="btn btn-yelow btn-lg text-dark">
+                        Compute Hand-Eye Parameters
+                    </button>
+                </div>
+
+                <div class="mt-4">
+                    <h5>Hand-Eye Calibration Results</h5>
+                    <div id="handeyeResults"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // JavaScript for hand-eye calibration
+    </script>
+</body>
+</html>
