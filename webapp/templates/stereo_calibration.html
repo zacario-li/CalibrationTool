@@ -1,68 +1,592 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stereo Calibration</title>
+    <title>Stereo Camera Calibration</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        body {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+
+        .navbar {
+            background: rgba(255, 255, 255, 0.1) !important;
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .navbar-brand {
+            font-weight: 600;
+        }
+
+        .nav-link {
+            color: rgba(255,255,255,0.9) !important;
+        }
+
+        .nav-link:hover {
+            color: white !important;
+        }
+
+        .page-header {
+            padding: 30px 0;
+            text-align: center;
+            color: white;
+        }
+
+        .page-header h1 {
+            font-weight: 700;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .page-header p {
+            opacity: 0.9;
+            font-weight: 300;
+        }
+
+        .card-modern {
+            background: rgba(255, 255, 255, 0.95);
+            border: none;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .card-modern .card-header {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+            border-bottom: none;
+            padding: 20px 25px;
+        }
+
+        .card-modern .card-header h5 {
+            margin: 0;
+            font-weight: 600;
+        }
+
+        .card-modern .card-body {
+            padding: 25px;
+        }
+
+        .form-label {
+            font-weight: 500;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .form-control, .form-select {
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            padding: 10px 15px;
+            transition: all 0.2s;
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: #11998e;
+            box-shadow: 0 0 0 3px rgba(17, 153, 142, 0.15);
+        }
+
+        .btn-success-modern {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            border: none;
+            padding: 12px 30px;
+            border-radius: 50px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .btn-success-modern:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(17, 153, 142, 0.4);
+        }
+
+        .btn-success-modern:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .upload-area {
+            border: 2px dashed #11998e;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: rgba(17, 153, 142, 0.05);
+        }
+
+        .upload-area:hover {
+            background: rgba(17, 153, 142, 0.1);
+            border-color: #38ef7d;
+        }
+
+        .upload-area i {
+            font-size: 2rem;
+            color: #11998e;
+            margin-bottom: 8px;
+        }
+
+        .upload-area p {
+            color: #666;
+            margin: 0;
+            font-size: 0.9rem;
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+
+        .result-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .result-card h6 {
+            margin-bottom: 15px;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .matrix-display {
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.85rem;
+            overflow-x: auto;
+            border: 1px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .matrix-display table {
+            border-collapse: collapse;
+        }
+
+        .matrix-display td {
+            padding: 5px 8px;
+            text-align: center;
+            font-size: 0.85rem;
+            color: #333;
+        }
+
+        .matrix-bracket {
+            font-size: 1.8rem;
+            color: #11998e;
+            font-weight: bold;
+            margin: 0 8px;
+        }
+
+        .preview-image {
+            width: 100%;
+            border-radius: 8px;
+            border: 2px solid #ddd;
+        }
+
+        .statistics-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 15px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 12px;
+        }
+
+        .stat-item .stat-label {
+            font-size: 0.85rem;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .stat-item .stat-value {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #11998e;
+        }
+    </style>
 </head>
 <body>
-    <nav class="navbar navbar-dark bg-success">
-        <span class="navbar-brand">Stereo Camera Calibration</span>
+    <nav class="navbar navbar-dark">
+        <div class="container">
+            <span class="navbar-brand">Stereo Camera Calibration</span>
+            <a class="nav-link" href="/"><i class="bi bi-house me-1"></i>Home</a>
+        </div>
     </nav>
 
-    <div class="container mt-4">
-        <div class="card shadow">
-            <div class="card-body">
-                <h5>Upload Stereo Pairs</h5>
-                <form id="stereoForm" enctype="multipart/form-data">
-                    <div class="row">
-                        <div class="col-6">
-                            <label>Left Camera Images</label>
-                            <input type="file" id="leftImages" multiple class="form-control">
-                        </div>
-                        <div class="col-6">
-                            <label>Right Camera Images</label>
-                            <input type="file" id="rightImages" multiple class="form-control">
-                        </div>
-                    </div>
+    <div class="page-header">
+        <div class="container">
+            <h1><i class="bi bi-camera-reels me-2"></i>Stereo Camera Calibration</h1>
+            <p>Calibrate stereo camera pairs for rectification and depth estimation</p>
+        </div>
+    </div>
 
-                    <div class="mt-3">
-                        <div class="row">
+    <div class="container pb-5">
+        <div class="row g-4">
+            <!-- Left Column: Configuration -->
+            <div class="col-lg-5">
+                <div class="card card-modern h-100">
+                    <div class="card-header">
+                        <h5><i class="bi bi-gear-fill me-2"></i>Configuration</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">
+                                <i class="bi bi-image me-2"></i>Left Camera Images
+                            </label>
+                            <div class="upload-area" id="leftUploadArea">
+                                <i class="bi bi-cloud-upload"></i>
+                                <p>Select left camera images</p>
+                            </div>
+                            <input type="file" id="leftImages" class="d-none" multiple accept=".png,.jpg,.jpeg,.bmp">
+                            <div id="leftFileCount" class="mt-2 text-center text-muted" style="font-size: 0.9rem;"></div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">
+                                <i class="bi bi-image me-2"></i>Right Camera Images
+                            </label>
+                            <div class="upload-area" id="rightUploadArea">
+                                <i class="bi bi-cloud-upload"></i>
+                                <p>Select right camera images</p>
+                            </div>
+                            <input type="file" id="rightImages" class="d-none" multiple accept=".png,.jpg,.jpeg,.bmp">
+                            <div id="rightFileCount" class="mt-2 text-center text-muted" style="font-size: 0.9rem;"></div>
+                        </div>
+
+                        <div class="alert" style="background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); border: none; border-radius: 12px;">
+                            <i class="bi bi-info-circle me-2"></i>
+                            <strong>Tip:</strong> Upload matching pairs of left and right images.<br>
+                            <small class="mb-0">Images should be in chronological order.</small>
+                        </div>
+
+                        <div class="row g-2 mb-3">
                             <div class="col-4">
-                                <label>Checkerboard Rows</label>
-                                <input id="rows" type="number" value="10" class="form-control">
+                                <label class="form-label"><i class="bi bi-arrow-down-up me-1"></i>Rows</label>
+                                <input id="rows" type="number" value="12" class="form-control">
                             </div>
                             <div class="col-4">
-                                <label>Checkerboard Columns</label>
-                                <input id="cols" type="number" value="7" class="form-control">
+                                <label class="form-label"><i class="bi bi-arrow-left-right me-1"></i>Cols</label>
+                                <input id="cols" type="number" value="9" class="form-control">
                             </div>
                             <div class="col-4">
-                                <label>Cell Size (mm)</label>
+                                <label class="form-label"><i class="bi bi-rulers me-1"></i>Cell (mm)</label>
                                 <input id="cellsize" type="number" step="0.01" value="1.0" class="form-control">
                             </div>
                         </div>
-                    </div>
 
-                    <div class="text-center mt-3">
-                        <button class="btn btn-success btn-lg">
-                            Calibrate Stereo
+                        <button id="calibrateBtn" class="btn btn-success-modern w-100">
+                            <i class="bi bi-play-circle me-2"></i>Calibrate Stereo
                         </button>
                     </div>
-                </form>
+                </div>
+            </div>
 
-                <div class="mt-4">
-                    <h6>Rectification Preview</h6>
-                    <div class="row">
-                        <div class="col-6">
-                            <img id="imageLeft" class="w-100 img-fluid">
+            <!-- Right Column: Results -->
+            <div class="col-lg-7">
+                <div class="card card-modern h-100">
+                    <div class="card-header">
+                        <h5><i class="bi bi-graph-up me-2"></i>Calibration Results</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="statusDiv">
+                            <div class="text-center text-muted py-5">
+                                <i class="bi bi-circle" style="font-size: 4rem; opacity: 0.2;"></i>
+                                <p class="mt-3 mb-0">Upload stereo pairs and click Calibrate to begin</p>
+                            </div>
                         </div>
-                        <div class="col-6">
-                            <img id="imageRight" class="w-100 img-fluid">
+
+                        <div id="resultsDiv" style="display: none;">
+                            <div class="alert alert-success d-none" id="successAlert">
+                                <i class="bi bi-check-circle me-2"></i>Stereo calibration completed successfully!
+                            </div>
+
+                            <div class="statistics-row">
+                                <div class="stat-item">
+                                    <div class="stat-label">Left Camera Error</div>
+                                    <div class="stat-value" id="leftError">-</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-label">Right Camera Error</div>
+                                    <div class="stat-value" id="rightError">-</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-label">Image Pairs</div>
+                                    <div class="stat-value" id="imagePairs">-</div>
+                                </div>
+                            </div>
+
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-6">
+                                    <div class="result-card h-100">
+                                        <h6><i class="bi bi-grid me-2"></i>Left Intrinsic Matrix</h6>
+                                        <div class="matrix-display" id="leftMatrix"></div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="result-card h-100">
+                                        <h6><i class="bi bi-grid me-2"></i>Right Intrinsic Matrix</h6>
+                                        <div class="matrix-display" id="rightMatrix"></div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="result-card h-100">
+                                        <h6><i class="bi bi-rotate me-2"></i>Rotation Matrix (Camera2)</h6>
+                                        <div class="matrix-display" id="rotationMatrix"></div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="result-card h-100">
+                                        <h6><i class="bi bi-arrow-right me-2"></i>Translation Vector (Camera2)</h6>
+                                        <div class="matrix-display" id="translationMatrix"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mb-4">
+                                <h6 class="mb-3"><i class="bi bi-magic me-2"></i>Rectification Preview</h6>
+                                <div class="row g-3">
+                                    <div class="col-6">
+                                        <img id="rectifiedLeft" class="preview-image" style="display: none;">
+                                        <p class="text-center text-muted small mt-1">Left (Rectified)</p>
+                                    </div>
+                                    <div class="col-6">
+                                        <img id="rectifiedRight" class="preview-image" style="display: none;">
+                                        <p class="text-center text-muted small mt-1">Right (Rectified)</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="text-center">
+                                <button id="downloadResultsBtn" class="btn btn-success-modern d-none">
+                                    <i class="bi bi-download me-2"></i>Download Results (JSON)
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+
+    <script>
+        let stereoCalibrationData = null;
+
+        // Left upload area
+        document.getElementById('leftUploadArea').addEventListener('click', function() {
+            document.getElementById('leftImages').click();
+        });
+        document.getElementById('leftImages').addEventListener('change', function() {
+            document.getElementById('leftFileCount').innerHTML =
+                this.files.length > 0 ? `<i class="bi bi-check-circle-fill text-success me-1"></i>${this.files.length} image${this.files.length !== 1 ? 's' : ''}` : '';
+        });
+
+        // Right upload area
+        document.getElementById('rightUploadArea').addEventListener('click', function() {
+            document.getElementById('rightImages').click();
+        });
+        document.getElementById('rightImages').addEventListener('change', function() {
+            document.getElementById('rightFileCount').innerHTML =
+                this.files.length > 0 ? `<i class="bi bi-check-circle-fill text-success me-1"></i>${this.files.length} image${this.files.length !== 1 ? 's' : ''}` : '';
+        });
+
+        // Calibration button
+        document.getElementById('calibrateBtn').addEventListener('click', async function() {
+            const leftFiles = document.getElementById('leftImages').files;
+            const rightFiles = document.getElementById('rightImages').files;
+
+            if (leftFiles.length === 0 || rightFiles.length === 0) {
+                alert('Please select both left and right camera images');
+                return;
+            }
+
+            if (leftFiles.length !== rightFiles.length) {
+                alert('Left and right images must have the same count');
+                return;
+            }
+
+            const formData = new FormData();
+            for (let i = 0; i < leftFiles.length; i++) {
+                formData.append('files_left', leftFiles[i]);
+            }
+            for (let i = 0; i < rightFiles.length; i++) {
+                formData.append('files_right', rightFiles[i]);
+            }
+            formData.append('rows', document.getElementById('rows').value);
+            formData.append('cols', document.getElementById('cols').value);
+            formData.append('cellsize', document.getElementById('cellsize').value);
+            formData.append('use_libcbdet', 'false');
+
+            this.disabled = true;
+            this.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Calibrating...';
+
+            const statusDiv = document.getElementById('statusDiv');
+            statusDiv.style.display = 'none';
+            document.getElementById('resultsDiv').style.display = 'block';
+            document.getElementById('leftMatrix').innerHTML = '<div class="spinner-border spinner-border-sm text-success"></div>';
+            document.getElementById('rightMatrix').innerHTML = '<div class="spinner-border spinner-border-sm text-success"></div>';
+
+            try {
+                const response = await fetch('/api/stereo/calibrate', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    stereoCalibrationData = data;
+
+                    // Show success alert
+                    document.getElementById('successAlert').classList.remove('d-none');
+
+                    // Statistics
+                    const errorVal = data.stereo_error || 0;
+                    document.getElementById('leftError').textContent = errorVal.toFixed(4);
+                    document.getElementById('rightError').textContent = errorVal.toFixed(4);
+                    document.getElementById('imagePairs').textContent = data.processed || leftFiles.length;
+
+                    // Left matrix
+                    if (data.left_intrinsic) {
+                        const mtx = data.left_intrinsic;
+                        let html = '<div style="display: flex; align-items: center;"><span class="matrix-bracket">[';
+                        html += '<table>';
+                        for (let i = 0; i < mtx.length; i++) {
+                            html += '<tr>';
+                            for (let j = 0; j < mtx[i].length; j++) {
+                                html += `<td>${mtx[i][j].toFixed(4)}</td>`;
+                            }
+                            html += '</tr>';
+                        }
+                        html += '</table><span class="matrix-bracket">]</span></div>';
+                        document.getElementById('leftMatrix').innerHTML = html;
+                    }
+
+                    // Right matrix
+                    if (data.right_intrinsic) {
+                        const mtx = data.right_intrinsic;
+                        let html = '<div style="display: flex; align-items: center;"><span class="matrix-bracket">[';
+                        html += '<table>';
+                        for (let i = 0; i < mtx.length; i++) {
+                            html += '<tr>';
+                            for (let j = 0; j < mtx[i].length; j++) {
+                                html += `<td>${mtx[i][j].toFixed(4)}</td>`;
+                            }
+                            html += '</tr>';
+                        }
+                        html += '</table><span class="matrix-bracket">]</span></div>';
+                        document.getElementById('rightMatrix').innerHTML = html;
+                    }
+
+                    // Rotation matrix (Camera 2)
+                    if (data.rotation) {
+                        const mtx = data.rotation;
+                        let html = '<div style="display: flex; align-items: center;"><span class="matrix-bracket">[';
+                        html += '<table>';
+                        for (let i = 0; i < mtx.length; i++) {
+                            html += '<tr>';
+                            for (let j = 0; j < mtx[i].length; j++) {
+                                html += `<td>${mtx[i][j].toFixed(4)}</td>`;
+                            }
+                            html += '</tr>';
+                        }
+                        html += '</table><span class="matrix-bracket">]</span></div>';
+                        document.getElementById('rotationMatrix').innerHTML = html;
+                    }
+
+                    // Translation vector (Camera 2)
+                    if (data.translation) {
+                        const trans = Array.isArray(data.translation[0]) ? data.translation.flat() : data.translation;
+                        let html = '<div style="display: flex; align-items: center;"><span class="matrix-bracket">[';
+                        html += '<table><tr>';
+                        trans.forEach(val => {
+                            html += `<td>${val.toFixed(4)}</td>`;
+                        });
+                        html += '</tr></table><span class="matrix-bracket">]</span></div>';
+                        document.getElementById('translationMatrix').innerHTML = html;
+                    }
+
+                    // Rectified images if available
+                    if (data.rectified_images?.length > 0) {
+                        const leftImg = document.getElementById('rectifiedLeft');
+                        leftImg.src = data.rectified_images[0];
+                        leftImg.style.display = 'block';
+
+                        if (data.rectified_images.length > 1) {
+                            const rightImg = document.getElementById('rectifiedRight');
+                            rightImg.src = data.rectified_images[1];
+                            rightImg.style.display = 'block';
+                        }
+                    }
+
+                    // Show download button
+                    const downloadBtn = document.getElementById('downloadResultsBtn');
+                    downloadBtn.classList.remove('d-none');
+                    downloadBtn.onclick = function() {
+                        if (stereoCalibrationData) {
+                            // Format JSON to match OpenCV stereo calibration format
+                            const leftIntrinsic = stereoCalibrationData.left_intrinsic;
+                            const leftDist = stereoCalibrationData.left_distortion;
+                            const rightIntrinsic = stereoCalibrationData.right_intrinsic;
+                            const rightDist = stereoCalibrationData.right_distortion;
+
+                            // Flatten distortion to single array: [k1, k2, p1, p2, k3]
+                            const leftDistFlat = leftDist.flat ? leftDist.flat() : leftDist[0] || [];
+                            const rightDistFlat = rightDist.flat ? rightDist.flat() : rightDist[0] || [];
+
+                            const downloadData = {
+                                version: "0.1",
+                                SN: "",
+                                Scheme: "opencv",
+                                CameraParameters1: {
+                                    RadialDistortion: [leftDistFlat[0] || 0, leftDistFlat[1] || 0, leftDistFlat[4] || 0],
+                                    TangentialDistortion: [leftDistFlat[2] || 0, leftDistFlat[3] || 0],
+                                    IntrinsicMatrix: leftIntrinsic
+                                },
+                                CameraParameters2: {
+                                    RadialDistortion: [rightDistFlat[0] || 0, rightDistFlat[1] || 0, rightDistFlat[4] || 0],
+                                    TangentialDistortion: [rightDistFlat[2] || 0, rightDistFlat[3] || 0],
+                                    IntrinsicMatrix: rightIntrinsic
+                                },
+                                RotationOfCamera2: stereoCalibrationData.rotation,
+                                TranslationOfCamera2: stereoCalibrationData.translation.flat ? stereoCalibrationData.translation.flat() : stereoCalibrationData.translation,
+                                FundamentalMatrix: stereoCalibrationData.fundamental,
+                                EssentialMatrix: stereoCalibrationData.essential
+                            };
+
+                            const json = JSON.stringify(downloadData, null, 4);
+                            const blob = new Blob([json], {type: 'application/json'});
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `stereoParams_${Date.now()}.json`;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+                        }
+                    };
+
+                } else {
+                    resultsDiv.innerHTML = `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> Error: ${data.error}</div>`;
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> Error: ${error.message}</div>`;
+            }
+            this.disabled = false;
+            this.innerHTML = '<i class="bi bi-play-circle me-2"></i>Calibrate Stereo';
+        });
+    </script>
 </body>
 </html>

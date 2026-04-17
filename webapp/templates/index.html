@@ -5,63 +5,259 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Camera Calibration Tool</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        body {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+
+        .navbar {
+            background: rgba(255, 255, 255, 0.1) !important;
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .navbar-brand {
+            font-weight: 600;
+            font-size: 1.4rem;
+        }
+
+        .hero-section {
+            padding: 80px 0 60px;
+            text-align: center;
+            color: white;
+        }
+
+        .hero-section h1 {
+            font-weight: 700;
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+
+        .hero-section p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            font-weight: 300;
+        }
+
+        .features-section {
+            padding: 40px 0 60px;
+        }
+
+        .feature-card {
+            background: rgba(255, 255, 255, 0.95);
+            border: none;
+            border-radius: 16px;
+            padding: 30px 25px;
+            text-align: center;
+            transition: all 0.3s ease;
+            height: 100%;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+
+        .feature-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+        }
+
+        .feature-icon {
+            width: 70px;
+            height: 70px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            font-size: 2rem;
+        }
+
+        .feature-card.mono .feature-icon {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .feature-card.stereo .feature-icon {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+        }
+
+        .feature-card.handeye .feature-icon {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .feature-card.disparity .feature-icon {
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            color: #333;
+        }
+
+        .feature-card h5 {
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .feature-card p {
+            color: #666;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        .btn-feature {
+            padding: 10px 30px;
+            border-radius: 50px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .btn-feature.mono {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+        }
+
+        .btn-feature.mono:hover {
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+            color: white;
+            transform: scale(1.05);
+        }
+
+        .btn-feature.stereo {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+            border: none;
+        }
+
+        .btn-feature.stereo:hover {
+            box-shadow: 0 5px 20px rgba(17, 153, 142, 0.4);
+            color: white;
+            transform: scale(1.05);
+        }
+
+        .btn-feature.handeye {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            border: none;
+        }
+
+        .btn-feature.handeye:hover {
+            box-shadow: 0 5px 20px rgba(245, 87, 108, 0.4);
+            color: white;
+            transform: scale(1.05);
+        }
+
+        .btn-feature.disparity {
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            color: #333;
+            border: none;
+        }
+
+        .btn-feature.disparity:hover {
+            box-shadow: 0 5px 20px rgba(252, 182, 159, 0.4);
+            color: #333;
+            transform: scale(1.05);
+        }
+
+        .footer {
+            text-align: center;
+            padding: 30px 0;
+            color: rgba(255,255,255,0.7);
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+            .hero-section h1 {
+                font-size: 2rem;
+            }
+            .hero-section {
+                padding: 50px 0 40px;
+            }
+        }
+    </style>
 </head>
-<body class="bg-light">
-    <nav class="navbar navbar-dark bg-primary">
+<body>
+    <nav class="navbar navbar-dark">
         <div class="container">
-            <span class="navbar-brand">Calibration Tool &mdash; Camera Calibration System</span>
+            <span class="navbar-brand">
+                <i class="bi bi-camera-fill me-2"></i>Camera Calibration Tool
+            </span>
+            <span class="text-white-50" style="font-size: 0.9rem;">v2.0</span>
         </div>
     </nav>
 
-    <div class="container mt-5">
-        <div class="text-center">
-            <h2 class="text-primary mb-3">Camera Calibration</h2>
-            <p class="text-muted">Professional camera calibration tool</p>
+    <div class="hero-section">
+        <div class="container">
+            <h1>Precision Camera Calibration</h1>
+            <p>Professional tool for camera calibration, rectification, and 3D reconstruction</p>
         </div>
+    </div>
 
-        <div class="row text-center mt-4">
-            <div class="col-3">
-                <div class="card border-primary mb-3 shadow-sm">
-                    <div class="card-body text-center">
+    <div class="container features-section">
+        <div class="row g-4">
+            <!-- Mono Camera Calibration -->
+            <div class="col-lg-3 col-md-6">
+                <a href="/calibration/mono" class="text-decoration-none">
+                    <div class="feature-card mono h-100">
+                        <div class="feature-icon">
+                            <i class="bi bi-camera"></i>
+                        </div>
                         <h5>Mono Camera</h5>
-                        <p class="small text-muted s*f;font hfaG t"</p>
-                        <a href="/calibration/mono" class="btn btn-primary btn-sm">Start</a>
+                        <p>Calibrate a single camera's intrinsic parameters using checkerboard patterns</p>
+                        <button class="btn btn-feature mono">Get Started <i class="bi bi-arrow-right ms-1"></i></button>
                     </div>
-                </div>
+                </a>
             </div>
 
-            <div class="col-3">
-                <div class="card border-success mb-3 shadow-sm">
-                    <div class="card-body text-center">
+            <!-- Stereo Camera Calibration -->
+            <div class="col-lg-3 col-md-6">
+                <a href="/calibration/stereo" class="text-decoration-none">
+                    <div class="feature-card stereo h-100">
+                        <div class="feature-icon">
+                            <i class="bi bi-camera-reels"></i>
+                        </div>
                         <h5>Stereo Camera</h5>
-                        <p class="small text-muted">Stereo camera calibration</p>
-                        <a href="/calibration/stereo" class="btn btn-success btn-sm">Start</a>
+                        <p>Calibrate stereo camera pairs for rectification and depth estimation</p>
+                        <button class="btn btn-feature stereo">Get Started <i class="bi bi-arrow-right ms-1"></i></button>
                     </div>
-                </div>
+                </a>
             </div>
 
-            <div class="col-3">
-                <div class="card border-warning mb-3 shadow-sm">
-                    <div class="card-body text-center">
-                        <h5>HandEye</h5>
-                        <p class="small text-muted">Hand-eye calibration</p>
-                        <a href="/calibration/handeye" class="btn b*t-n-yellow btn-sm text-dark">Start</a>
+            <!-- Hand-Eye Calibration -->
+            <div class="col-lg-3 col-md-6">
+                <a href="/calibration/handeye" class="text-decoration-none">
+                    <div class="feature-card handeye h-100">
+                        <div class="feature-icon">
+                            <i class="bi bi-gear-wide-connected"></i>
+                        </div>
+                        <h5>Hand-Eye</h5>
+                        <p>Robotic hand-eye calibration for camera-to-robot transformation</p>
+                        <button class="btn btn-feature handeye">Get Started <i class="bi bi-arrow-right ms-1"></i></button>
                     </div>
-                </div>
+                </a>
             </div>
 
-            </div>
-
-            <div class="col-3">
-                <div class="card border-warning mb-3 shadow-sm">
-                    <div class="card-body text-center">
-                        <h5>Stereo Disparity</h5>
-                        <p class="small text-muted">Disparity/depth measurement</p>
-                        <a href="/calibration/disparity" class="btn btn-yellow btn-sm text-dark">Start</a>
+            <!-- Stereo Disparity -->
+            <div class="col-lg-3 col-md-6">
+                <a href="/calibration/disparity" class="text-decoration-none">
+                    <div class="feature-card disparity h-100">
+                        <div class="feature-icon">
+                            <i class="bi bi-box"></i>
+                        </div>
+                        <h5>3D Point Cloud</h5>
+                        <p>Compute disparity maps and visualize 3D point clouds from stereo images</p>
+                        <button class="btn btn-feature disparity">Get Started <i class="bi bi-arrow-right ms-1"></i></button>
                     </div>
-                </div>
+                </a>
             </div>
         </div>
+    </div>
+
+    <div class="footer">
+        <p>Built with OpenCV &bull; Powered by Flask</p>
     </div>
 </body>
 </html>

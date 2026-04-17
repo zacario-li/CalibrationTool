@@ -1,74 +1,740 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stereo Disparity</title>
+    <title>Stereo Disparity & 3D Reconstruction</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        body {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+
+        .navbar {
+            background: rgba(255, 255, 255, 0.1) !important;
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .navbar-brand {
+            font-weight: 600;
+        }
+
+        .nav-link {
+            color: rgba(255,255,255,0.9) !important;
+        }
+
+        .nav-link:hover {
+            color: white !important;
+        }
+
+        .page-header {
+            padding: 30px 0;
+            text-align: center;
+            color: white;
+        }
+
+        .page-header h1 {
+            font-weight: 700;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .page-header p {
+            opacity: 0.9;
+            font-weight: 300;
+        }
+
+        .card-modern {
+            background: rgba(255, 255, 255, 0.95);
+            border: none;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .card-modern .card-header {
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            color: #333;
+            border-bottom: none;
+            padding: 20px 25px;
+        }
+
+        .card-modern .card-header h5 {
+            margin: 0;
+            font-weight: 600;
+        }
+
+        .card-modern .card-body {
+            padding: 25px;
+        }
+
+        .form-label {
+            font-weight: 500;
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+
+        .form-control, .form-select {
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            padding: 10px 15px;
+            transition: all 0.2s;
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: #fcb69f;
+            box-shadow: 0 0 0 3px rgba(252, 182, 159, 0.15);
+        }
+
+        .btn-primary-modern {
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            border: none;
+            padding: 12px 30px;
+            border-radius: 50px;
+            font-weight: 600;
+            color: #333;
+            transition: all 0.3s;
+        }
+
+        .btn-primary-modern:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(252, 182, 159, 0.4);
+            color: #333;
+        }
+
+        .btn-primary-modern:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .upload-area {
+            border: 2px dashed #fcb69f;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: rgba(252, 182, 159, 0.05);
+        }
+
+        .upload-area:hover {
+            background: rgba(252, 182, 159, 0.1);
+            border-color: #ffecd2;
+        }
+
+        .upload-area i {
+            font-size: 2rem;
+            color: #fcb69f;
+            margin-bottom: 8px;
+        }
+
+        .upload-area p {
+            color: #666;
+            margin: 0;
+            font-size: 0.9rem;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .stat-card .stat-label {
+            font-size: 0.85rem;
+            color: #666;
+        }
+
+        .stat-card .stat-value {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .result-images {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+
+        .result-image-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 15px;
+        }
+
+        .result-image-card img {
+            width: 100%;
+            border-radius: 8px;
+            border: 2px solid #ddd;
+            margin-top: 10px;
+        }
+
+        #pointCloudContainer {
+            height: 500px;
+            border-radius: 16px;
+            overflow: hidden;
+            background: #1a1a2e;
+            position: relative;
+        }
+
+        .info-overlay {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-family: monospace;
+            font-size: 12px;
+            background: rgba(0,0,0,0.5);
+            padding: 8px;
+            border-radius: 4px;
+            z-index: 10;
+        }
+
+        .btn-sm-modern {
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            margin: 3px;
+        }
+    </style>
 </head>
 <body>
-    <nav class="navbar navbar-dark bg-warning">
-        <span class="navbar-brand">Stereo Disparity Computation</span>
+    <nav class="navbar navbar-dark">
+        <div class="container">
+            <span class="navbar-brand">Stereo Disparity & 3D Reconstruction</span>
+            <a class="nav-link" href="/"><i class="bi bi-house me-1"></i>Home</a>
+        </div>
     </nav>
 
-    <div class="container mt-4">
-        <div class="card shadow">
-            <div class="card-body">
-                <form id="disparityForm" enctype="multipart/form-data">
-                    <div class="row">
-                        <div class="col-6">
-                            <label>Left Image</label>
-                            <input type="file" id="leftImage" class="form-control">
-                        </div>
-                        <div class="col-6">
-                            <label>Right Image</label>
-                            <input type="file" id="rightImage" class="form-control">
-                        </div>
-                    </div>
+    <div class="page-header">
+        <div class="container">
+            <h1><i class="bi bi-box me-2"></i>Stereo Disparity & 3D Point Cloud</h1>
+            <p>Compute disparity maps and visualize 3D reconstructions from stereo images</p>
+        </div>
+    </div>
 
-                    <div class="row mt-3">
-                        <div class="col-3">
-                            <label>Algorithm</label>
-                            <select id="algorithm" class="form-select">
-                                <option value="block_match">Block Matching</option>
-                                <option value="sncc">S-NCC</option>
-                                <option value="pbo">PBO</option>
-                            </select>
-                        </div>
-                        <div class="col-3">
-                            <label>Capability Setting</label>
-                            <select id="capabilitySetting" class="form-select">
-                                <option value="-32">-32</option>
-                                <option value="16">16</option>
-                            </select>
-                        </div>
-                        <div class="col-3">
-                            <label>Disparity Storage</label>
-                            <select id="storageSetting" class="form-select">
-                                <option value="16">16-bit</option>
-                                <option value="32">32-bit</option>
-                            </select>
-                        </div>
+    <div class="container pb-5">
+        <div class="row g-4">
+            <!-- Left Column: Configuration -->
+            <div class="col-lg-4">
+                <div class="card card-modern h-100">
+                    <div class="card-header">
+                        <h5><i class="bi bi-gear-fill me-2"></i>Configuration</h5>
                     </div>
+                    <div class="card-body">
+                        <!-- Stereo Parameters -->
+                        <div class="mb-3">
+                            <label class="form-label">
+                                <i class="bi bi-file-earmark-json me-2"></i>Stereo Calibration File
+                            </label>
+                            <div class="upload-area" id="stereoParamsArea">
+                                <i class="bi bi-file-earmark-json"></i>
+                                <p>Select stereo calibration JSON</p>
+                            </div>
+                            <input type="file" id="stereoParams" class="d-none" accept=".json">
+                            <div id="paramStatus" class="mt-2 text-center text-muted" style="font-size: 0.9rem;"></div>
+                        </div>
 
-                    <div class="text-center mt-3">
-                        <button class="btn btn-yellow btn-lg text-dark">
-                            Compute Disparity
+                        <!-- SGBM Parameters -->
+                        <div class="mb-3">
+                            <label class="form-label d-block">
+                                <i class="bi bi-sliders me-2"></i>SGBM Parameters
+                            </label>
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
+                                    <input type="number" id="numDisparities" class="form-control" value="256" min="16" max="512" step="16">
+                                    <small class="text-muted d-block text-start">Num Disparities</small>
+                                </div>
+                                <div class="col-6">
+                                    <select id="blockSize" class="form-select">
+                                        <option value="3">Block: 3</option>
+                                        <option value="5">Block: 5</option>
+                                        <option value="7" selected>Block: 7</option>
+                                        <option value="9">Block: 9</option>
+                                    </select>
+                                    <small class="text-muted d-block text-start">Size</small>
+                                </div>
+                            </div>
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
+                                    <input type="number" id="uniquenessRatio" class="form-control" value="15" min="0" max="100">
+                                    <small class="text-muted d-block text-start">Uniqueness Ratio</small>
+                                </div>
+                                <div class="col-6">
+                                    <input type="number" id="speckleWindowSize" class="form-control" value="100" min="0">
+                                    <small class="text-muted d-block text-start">Speckle Window</small>
+                                </div>
+                            </div>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <input type="number" id="speckleRange" class="form-control" value="32" min="1">
+                                    <small class="text-muted d-block text-start">Speckle Range</small>
+                                </div>
+                                <div class="col-6">
+                                    <input type="number" id="disp12MaxDiff" class="form-control" value="3" min="0" max="5">
+                                    <small class="text-muted d-block text-start">Disp12 Max Diff</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Left Image -->
+                        <div class="mb-3">
+                            <label class="form-label">
+                                <i class="bi bi-image me-2"></i>Left Image
+                            </label>
+                            <div class="upload-area" id="leftImgArea">
+                                <i class="bi bi-image"></i>
+                                <p>Select left camera image</p>
+                            </div>
+                            <input type="file" id="leftImage" class="d-none" accept=".png,.jpg,.jpeg,.bmp">
+                            <div id="leftPreview" class="mt-2">
+                                <img id="leftImgPreview" class="img-fluid rounded" style="max-height: 100px; display: none;">
+                            </div>
+                        </div>
+
+                        <!-- Right Image -->
+                        <div class="mb-3">
+                            <label class="form-label">
+                                <i class="bi bi-image me-2"></i>Right Image
+                            </label>
+                            <div class="upload-area" id="rightImgArea">
+                                <i class="bi bi-image"></i>
+                                <p>Select right camera image</p>
+                            </div>
+                            <input type="file" id="rightImage" class="d-none" accept=".png,.jpg,.jpeg,.bmp">
+                            <div id="rightPreview" class="mt-2">
+                                <img id="rightImgPreview" class="img-fluid rounded" style="max-height: 100px; display: none;">
+                            </div>
+                        </div>
+
+                        <button id="computeBtn" class="btn btn-primary-modern w-100" disabled>
+                            <i class="bi bi-cpu me-2"></i>Compute Disparity & Depth
                         </button>
                     </div>
+                </div>
+            </div>
 
-                    <div class="mt-4">
-                        <h6>Disparity Image</h6>
-                        <img id="disparity" class="img-fluid">
+            <!-- Right Column: Results -->
+            <div class="col-lg-8">
+                <div class="card card-modern h-100">
+                    <div class="card-header">
+                        <h5><i class="bi bi-graph-up me-2"></i>Results</h5>
                     </div>
+                    <div class="card-body">
+                        <div id="statusDiv">
+                            <div class="text-center text-muted py-5">
+                                <i class="bi bi-circle" style="font-size: 4rem; opacity: 0.2;"></i>
+                                <p class="mt-3 mb-0">Load parameters and images to begin</p>
+                            </div>
+                        </div>
 
-                    <div class="text-center mt-3">
-                        <button id="download" class="btn btn-primary" disabled>
-                            Download Disparity
-                        </button>
+                        <div id="resultsDiv" style="display: none;">
+                            <div class="alert alert-success d-none" id="successAlert">
+                                <i class="bi bi-check-circle me-2"></i>Disparity and depth computation completed!
+                            </div>
+
+                            <div class="row g-3 mb-4">
+                                <div class="col-4">
+                                    <div class="stat-card">
+                                        <div class="stat-label">Min Depth</div>
+                                        <div class="stat-value" id="minDepth">-</div>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="stat-card">
+                                        <div class="stat-label">Max Depth</div>
+                                        <div class="stat-value" id="maxDepth">-</div>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="stat-card">
+                                        <div class="stat-label">Mean Depth</div>
+                                        <div class="stat-value" id="meanDepth">-</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="result-images mb-4">
+                                <div class="result-image-card">
+                                    <h6 class="mb-3"><i class="bi bi-palette me-2"></i>Disparity Map</h6>
+                                    <img id="disparityImage" style="display: none;">
+                                </div>
+                                <div class="result-image-card">
+                                    <h6 class="mb-3"><i class="bi bi-layers me-2"></i>Depth Map</h6>
+                                    <img id="depthImage" style="display: none;">
+                                    <p class="text-muted small mt-2 mb-0">Depth = baseline × focal_length / disparity</p>
+                                </div>
+                            </div>
+
+                            <div class="text-center mb-4">
+                                <button id="downloadDisparityBtn" class="btn btn-sm btn-success btn-sm-modern d-none">
+                                    <i class="bi bi-download me-1"></i>Disparity
+                                </button>
+                                <button id="downloadDepthBtn" class="btn btn-sm btn-success btn-sm-modern d-none">
+                                    <i class="bi bi-download me-1"></i>Depth
+                                </button>
+                                <button id="download16bitBtn" class="btn btn-sm btn-info btn-sm-modern d-none">
+                                    <i class="bi bi-download me-1"></i>16-bit Depth
+                                </button>
+                            </div>
+
+                            <!-- 3D Point Cloud Visualization -->
+                            <div class="mb-3">
+                                <h6 class="mb-3"><i class="bi bi-box-seam me-2"></i>3D Point Cloud Reconstruction</h6>
+                                <div id="pointCloudContainer">
+                                    <p class="text-light m-0" style="display: flex; align-items: center; justify-content: center; height: 100%;">
+                                        Compute disparity to see 3D reconstruction
+                                    </p>
+                                </div>
+                                <div class="text-muted small mt-2">
+                                    <i class="bi bi-info-circle me-1"></i><strong>Controls:</strong> Left-click to rotate | Right-click to pan | Scroll to zoom
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                </form>
+                </div>
             </div>
         </div>
     </div>
+
+    <script>
+        let stereoParams = null;
+        let disparityData = null;
+        let depthData = null;
+        let pointCloudData = null;
+        let threeScene = null;
+
+        // Setup upload areas
+        function setupUploadArea(areaId, inputId, callback) {
+            document.getElementById(areaId).addEventListener('click', function() {
+                document.getElementById(inputId).click();
+            });
+            document.getElementById(inputId).addEventListener('change', callback);
+        }
+
+        // Stereo parameters
+        setupUploadArea('stereoParamsArea', 'stereoParams', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(ev) {
+                    try {
+                        stereoParams = JSON.parse(ev.target.result);
+                        document.getElementById('paramStatus').innerHTML =
+                            '<i class="bi bi-check-circle-fill text-success"></i> Parameters loaded';
+                        checkComputeReady();
+                    } catch (err) {
+                        document.getElementById('paramStatus').innerHTML =
+                            '<i class="bi bi-exclamation-triangle text-danger"></i> Invalid JSON';
+                    }
+                };
+                reader.readAsText(file);
+            }
+        });
+
+        // Left image
+        setupUploadArea('leftImgArea', 'leftImage', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(ev) {
+                    const img = document.getElementById('leftImgPreview');
+                    img.src = ev.target.result;
+                    img.style.display = 'block';
+                    checkComputeReady();
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Right image
+        setupUploadArea('rightImgArea', 'rightImage', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(ev) {
+                    const img = document.getElementById('rightImgPreview');
+                    img.src = ev.target.result;
+                    img.style.display = 'block';
+                    checkComputeReady();
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        function checkComputeReady() {
+            const leftImg = document.getElementById('leftImage').files[0];
+            const rightImg = document.getElementById('rightImage').files[0];
+            const btn = document.getElementById('computeBtn');
+            btn.disabled = !(stereoParams && leftImg && rightImg);
+        }
+
+        // Compute button
+        document.getElementById('computeBtn').addEventListener('click', async function() {
+            const leftImage = document.getElementById('leftImage').files[0];
+            const rightImage = document.getElementById('rightImage').files[0];
+
+            if (!stereoParams) {
+                alert('Please load stereo parameters first');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('stereo_params', document.getElementById('stereoParams').files[0]);
+            formData.append('left_image', leftImage);
+            formData.append('right_image', rightImage);
+            formData.append('num_disparities', document.getElementById('numDisparities').value);
+            formData.append('block_size', document.getElementById('blockSize').value);
+            formData.append('uniqueness_ratio', document.getElementById('uniquenessRatio').value);
+            formData.append('speckle_window_size', document.getElementById('speckleWindowSize').value);
+            formData.append('speckle_range', document.getElementById('speckleRange').value);
+            formData.append('disp12_max_diff', document.getElementById('disp12MaxDiff').value);
+
+            this.disabled = true;
+            this.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Computing...';
+
+            const statusDiv = document.getElementById('statusDiv');
+            const resultsDiv = document.getElementById('resultsDiv');
+            statusDiv.style.display = 'none';
+            resultsDiv.style.display = 'block';
+            resultsDiv.innerHTML = '<div class="spinner-border text-primary" role="status"></div> <span class="d-block mt-2">Computing disparity and depth...</span>';
+
+            try {
+                const response = await fetch('/api/disparity/compute', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    resultsDiv.innerHTML = '';
+                    const successAlert = document.createElement('div');
+                    successAlert.id = 'successAlert';
+                    successAlert.className = 'alert alert-success';
+                    successAlert.innerHTML = '<i class="bi bi-check-circle me-2"></i>Disparity and depth computation completed!';
+                    resultsDiv.appendChild(successAlert);
+
+                    // Statistics
+                    const statsDiv = document.createElement('div');
+                    statsDiv.className = 'row g-3 mb-4';
+                    statsDiv.innerHTML = `
+                        <div class="col-4"><div class="stat-card"><div class="stat-label">Min Depth</div><div class="stat-value" id="minDepth">-</div></div></div>
+                        <div class="col-4"><div class="stat-card"><div class="stat-label">Max Depth</div><div class="stat-value" id="maxDepth">-</div></div></div>
+                        <div class="col-4"><div class="stat-card"><div class="stat-label">Mean Depth</div><div class="stat-value" id="meanDepth">-</div></div></div>
+                    `;
+                    resultsDiv.appendChild(statsDiv);
+                    document.getElementById('minDepth').textContent = data.min_depth.toFixed(2) + ' mm';
+                    document.getElementById('maxDepth').textContent = data.max_depth.toFixed(2) + ' mm';
+                    document.getElementById('meanDepth').textContent = data.mean_depth.toFixed(2) + ' mm';
+
+                    // Images
+                    const imgsDiv = document.createElement('div');
+                    imgsDiv.className = 'result-images mb-4';
+                    imgsDiv.innerHTML = `
+                        <div class="result-image-card">
+                            <h6 class="mb-3"><i class="bi bi-palette me-2"></i>Disparity Map</h6>
+                            <img id="disparityImage" style="display: block;">
+                        </div>
+                        <div class="result-image-card">
+                            <h6 class="mb-3"><i class="bi bi-layers me-2"></i>Depth Map</h6>
+                            <img id="depthImage" style="display: block;">
+                            <p class="text-muted small mt-2 mb-0">Depth = baseline × focal_length / disparity</p>
+                        </div>
+                    `;
+                    resultsDiv.appendChild(imgsDiv);
+                    document.getElementById('disparityImage').src = data.disparity_image;
+                    document.getElementById('depthImage').src = data.depth_image;
+
+                    // Store data for downloading
+                    disparityData = data.disparity_download;
+                    depthData = data.depth_download;
+
+                    // Download buttons
+                    const btnsDiv = document.createElement('div');
+                    btnsDiv.className = 'text-center mb-4';
+                    btnsDiv.innerHTML = `
+                        <button id="downloadDisparityBtn" class="btn btn-sm btn-success btn-sm-modern"><i class="bi bi-download me-1"></i>Disparity</button>
+                        <button id="downloadDepthBtn" class="btn btn-sm btn-success btn-sm-modern"><i class="bi bi-download me-1"></i>Depth</button>
+                        <button id="download16bitBtn" class="btn btn-sm btn-info btn-sm-modern"><i class="bi bi-download me-1"></i>16-bit Depth</button>
+                    `;
+                    resultsDiv.appendChild(btnsDiv);
+
+                    // Point cloud visualization
+                    const pcDiv = document.createElement('div');
+                    pcDiv.className = 'mb-3';
+                    pcDiv.innerHTML = `
+                        <h6 class="mb-3"><i class="bi bi-box-seam me-2"></i>3D Point Cloud Reconstruction</h6>
+                        <div id="pointCloudContainer"><p class="text-light m-0" style="display: flex; align-items: center; justify-content: center; height: 100%;">Compute disparity to see 3D reconstruction</p></div>
+                        <div class="text-muted small mt-2"><i class="bi bi-info-circle me-1"></i><strong>Controls:</strong> Left-click to rotate | Right-click to pan | Scroll to zoom</div>
+                    `;
+                    resultsDiv.appendChild(pcDiv);
+
+                    if (data.point_cloud && data.point_cloud.count > 0) {
+                        pointCloudData = data.point_cloud;
+                        initPointCloud(pointCloudData);
+                    } else {
+                        document.getElementById('pointCloudContainer').innerHTML =
+                            '<p class="text-warning m-0" style="display: flex; align-items: center; justify-content: center; height: 100%;">Not enough valid depth data for 3D reconstruction</p>';
+                    }
+
+                    // Download handlers
+                    document.getElementById('downloadDisparityBtn').onclick = function() {
+                        if (disparityData) downloadBlob(disparityData, 'disparity.png');
+                    };
+                    document.getElementById('downloadDepthBtn').onclick = function() {
+                        if (depthData) downloadBlob(depthData, 'depth.png');
+                    };
+
+                } else {
+                    resultsDiv.innerHTML = `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> Error: ${data.error}</div>`;
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> Error: ${error.message}</div>`;
+            }
+            this.disabled = false;
+            this.innerHTML = '<i class="bi bi-cpu me-2"></i>Compute Disparity & Depth';
+        });
+
+        // Three.js point cloud visualization
+        function initPointCloud(pcData) {
+            const container = document.getElementById('pointCloudContainer');
+            container.innerHTML = '';
+
+            console.log('Initializing point cloud with', pcData.count, 'points');
+
+            threeScene = new THREE.Scene();
+            threeScene.background = new THREE.Color(0x1a1a2e);
+
+            const camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 100000);
+
+            const renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            container.appendChild(renderer.domElement);
+
+            const controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+
+            // Filter invalid points
+            const validPositions = [];
+            pcData.positions.forEach(p => {
+                if (p[2] > 0) {
+                    validPositions.push(p[0], p[1], p[2]);
+                }
+            });
+
+            console.log('Valid point count:', validPositions.length / 3);
+
+            if (validPositions.length === 0) {
+                container.innerHTML = '<p class="text-warning m-0" style="display: flex; align-items: center; justify-content: center; height: 100%;">No valid 3D points to display</p>';
+                return;
+            }
+
+            const positions = new Float32Array(validPositions);
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+            // Colors
+            const colors = new Float32Array(positions.length / 3 * 3);
+            const zValues = [];
+            for (let i = 2; i < validPositions.length; i += 3) {
+                zValues.push(validPositions[i]);
+            }
+            const minZ = Math.min(...zValues);
+            const maxZ = Math.max(...zValues);
+            const zRange = maxZ - minZ || 1;
+
+            console.log('Z range:', minZ.toFixed(2), 'to', maxZ.toFixed(2), 'mm');
+
+            const color1 = new THREE.Color(0x00ffff);
+            const color2 = new THREE.Color(0xff00ff);
+
+            for (let i = 0; i < validPositions.length / 3; i++) {
+                const z = validPositions[i * 3 + 2];
+                const t = Math.min(1, Math.max(0, (z - minZ) / zRange));
+                const color = color1.clone().lerp(color2, t);
+                colors[i * 3] = color.r;
+                colors[i * 3 + 1] = color.g;
+                colors[i * 3 + 2] = color.b;
+            }
+
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+            const material = new THREE.PointsMaterial({
+                size: 5,
+                vertexColors: true,
+                sizeAttenuation: true,
+                transparent: true,
+                opacity: 0.9
+            });
+
+            const pointCloud = new THREE.Points(geometry, material);
+            threeScene.add(pointCloud);
+
+            geometry.computeBoundingBox();
+            const center = new THREE.Vector3();
+            geometry.boundingBox.getCenter(center);
+            const size = new THREE.Vector3();
+            geometry.boundingBox.getSize(size);
+            const maxDim = Math.max(size.x, size.y, size.z);
+
+            console.log('Center:', center, 'Size:', size);
+
+            camera.position.set(center.x + maxDim * 0.5, center.y + maxDim * 0.5, center.z + maxDim * 2);
+            camera.lookAt(center);
+            controls.target.copy(center);
+
+            const gridSize = maxDim * 2;
+            const gridHelper = new THREE.GridHelper(gridSize, 20);
+            threeScene.add(gridHelper);
+            const axisHelper = new THREE.AxesHelper(maxDim * 0.3);
+            threeScene.add(axisHelper);
+
+            const infoDiv = document.createElement('div');
+            infoDiv.className = 'info-overlay';
+            infoDiv.innerHTML = `Points: ${validPositions.length / 3}<br>Z: ${minZ.toFixed(1)} - ${maxZ.toFixed(1)} mm`;
+            container.appendChild(infoDiv);
+
+            function animate() {
+                requestAnimationFrame(animate);
+                controls.update();
+                renderer.render(threeScene, camera);
+            }
+            animate();
+
+            window.addEventListener('resize', () => {
+                const width = container.clientWidth;
+                const height = container.clientHeight;
+                renderer.setSize(width, height);
+                camera.aspect = width / height;
+                camera.updateProjectionMatrix();
+            });
+        }
+
+        function downloadBlob(base64Data, filename) {
+            const binaryString = atob(base64Data);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            const url = window.URL.createObjectURL(new Blob([bytes], {type: 'image/png'}));
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }
+    </script>
 </body>
 </html>

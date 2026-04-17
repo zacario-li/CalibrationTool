@@ -3,4 +3,4 @@ wxpython
 loguru
 numpy
 scipy
-opencv-python==4.8.0
+opencv-python

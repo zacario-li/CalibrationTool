@@ -5,55 +5,347 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mono Camera Calibration</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        body {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+
+        .navbar {
+            background: rgba(255, 255, 255, 0.1) !important;
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .navbar-brand {
+            font-weight: 600;
+        }
+
+        .nav-link {
+            color: rgba(255,255,255,0.9) !important;
+        }
+
+        .nav-link:hover {
+            color: white !important;
+        }
+
+        .page-header {
+            padding: 30px 0;
+            text-align: center;
+            color: white;
+        }
+
+        .page-header h1 {
+            font-weight: 700;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .page-header p {
+            opacity: 0.9;
+            font-weight: 300;
+        }
+
+        .card-modern {
+            background: rgba(255, 255, 255, 0.95);
+            border: none;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .card-modern .card-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-bottom: none;
+            padding: 20px 25px;
+        }
+
+        .card-modern .card-header h5 {
+            margin: 0;
+            font-weight: 600;
+        }
+
+        .card-modern .card-body {
+            padding: 25px;
+        }
+
+        .form-label {
+            font-weight: 500;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .form-control, .form-select {
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            padding: 10px 15px;
+            transition: all 0.2s;
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+        }
+
+        .btn-primary-modern {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            padding: 12px 30px;
+            border-radius: 50px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .btn-primary-modern:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary-modern:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .alert-info-modern {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            border: none;
+            border-radius: 12px;
+            padding: 15px;
+        }
+
+        .upload-area {
+            border: 2px dashed #667eea;
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: rgba(102, 126, 234, 0.05);
+        }
+
+        .upload-area:hover {
+            background: rgba(102, 126, 234, 0.1);
+            border-color: #764ba2;
+        }
+
+        .upload-area i {
+            font-size: 3rem;
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .upload-area p {
+            color: #666;
+            margin: 0;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .stat-card .stat-label {
+            font-size: 0.85rem;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .stat-card .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .matrix-display {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
+        }
+
+        .preview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .preview-item {
+            position: relative;
+            border-radius: 8px;
+            overflow: hidden;
+            aspect-ratio: 4/3;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .preview-item:hover {
+            border-color: #667eea;
+        }
+
+        .preview-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .preview-badge {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 3px 8px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+        }
+
+        @media (max-width: 768px) {
+            .page-header h1 {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
 </head>
-<body class="bg-light">
-    <nav class="navbar navbar-dark bg-primary">
+<body>
+    <nav class="navbar navbar-dark">
         <div class="container">
             <span class="navbar-brand">Mono Camera Calibration</span>
-            <ul class="navbar-nav">
-                <li class="nav-item"><a class="nav-link" href="/">Home</a></li>
-            </ul>
+            <a class="nav-link" href="/"><i class="bi bi-house me-1"></i>Home</a>
         </div>
     </nav>
 
-    <div class="container mt-4">
-        <div class="row">
-            <div class="col-4">
-                <div class="card shadow-sm">
+    <div class="page-header">
+        <div class="container">
+            <h1><i class="bi bi-camera me-2"></i>Mono Camera Calibration</h1>
+            <p>Calibrate intrinsic parameters using checkerboard patterns</p>
+        </div>
+    </div>
+
+    <div class="container pb-5">
+        <div class="row g-4">
+            <!-- Left Column: Configuration -->
+            <div class="col-lg-4">
+                <div class="card card-modern h-100">
+                    <div class="card-header">
+                        <h5><i class="bi bi-gear-fill me-2"></i>Configuration</h5>
+                    </div>
                     <div class="card-body">
-                        <h5 class="card-title">Configuration</h5>
+                        <div class="mb-4">
+                            <label class="form-label d-block text-start">
+                                <i class="bi bi-image me-2"></i>Upload Calibration Images
+                            </label>
+                            <div class="upload-area" id="uploadArea">
+                                <i class="bi bi-cloud-upload"></i>
+                                <p>Click or drag images here<br><small class="text-muted">PNG, JPG, BMP supported</small></p>
+                            </div>
+                            <input type="file" id="imageFiles" class="d-none" multiple accept=".png,.jpg,.jpeg,.bmp,.webp">
+                            <div id="fileCount" class="mt-2 text-center text-muted" style="font-size: 0.9rem;"></div>
+                        </div>
 
-                        <div class="mb-3">
-                            <label class="form-label">Upload Calibration Images</label>
-                            <input type="file" id="imageFiles" class="form-control" multiple accept=".png,.jpg,.jpeg,.bmp,.webp">
+                        <div class="alert alert-info-modern mb-3">
+                            <i class="bi bi-info-circle me-2"></i>
+                            <strong>Tip:</strong> Enter the number of <strong>squares</strong> on your checkerboard.<br>
+                            <small class="mb-0">Example: A 12×9 checkerboard has 11×8 inner corners.</small>
+                        </div>
+
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <label class="form-label">
+                                    <i class="bi bi-arrow-down-up me-1"></i>Rows
+                                </label>
+                                <input type="number" id="rows" class="form-control" value="12" min="2">
+                                <small class="text-muted d-block">squares vertically</small>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label">
+                                    <i class="bi bi-arrow-left-right me-1"></i>Columns
+                                </label>
+                                <input type="number" id="cols" class="form-control" value="9" min="2">
+                                <small class="text-muted d-block">squares horizontally</small>
+                            </div>
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label">Checkerboard Rows</label>
-                            <input type="number" id="rows" class="form-control" value="10" min="2">
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">Checkerboard Columns</label>
-                            <input type="number" id="cols" class="form-control" value="7" min="2">
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">Cell Size (mm)</label>
+                            <label class="form-label">
+                                <i class="bi bi-rulers me-1"></i>Cell Size (mm)
+                            </label>
                             <input type="number" step="0.01" id="cellsize" class="form-control" value="1.0">
                         </div>
 
-                        <button id="calibrateBtn" class="btn btn-primary w-100">Calibrate</button>
+                        <button id="calibrateBtn" class="btn btn-primary-modern w-100">
+                            <i class="bi bi-play-circle me-2"></i>Calibrate Camera
+                        </button>
                     </div>
                 </div>
             </div>
 
-            <div class="col-8">
-                <div class="card shadow-sm">
+            <!-- Right Column: Results -->
+            <div class="col-lg-8">
+                <div class="card card-modern h-100">
+                    <div class="card-header">
+                        <h5><i class="bi bi-graph-up me-2"></i>Calibration Results</h5>
+                    </div>
                     <div class="card-body">
-                        <h5 class="card-title">Results</h5>
-                        <div id="calibrationResults"></div>
-                        <div id="imageDisplay"></div>
+                        <div id="statusDiv">
+                            <div class="text-center text-muted py-5">
+                                <i class="bi bi-circle" style="font-size: 4rem; opacity: 0.2;"></i>
+                                <p class="mt-3 mb-0">Upload images and click Calibrate to begin</p>
+                            </div>
+                        </div>
+
+                        <div id="resultsDiv" style="display: none;">
+                            <div class="alert alert-success d-none" id="successAlert">
+                                <i class="bi bi-check-circle me-2"></i>Calibration completed successfully!
+                            </div>
+
+                            <div class="stats-grid">
+                                <div class="stat-card">
+                                    <div class="stat-label">Reprojection Error</div>
+                                    <div class="stat-value text-primary" id="reprojError">-</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-label">Valid Images</div>
+                                    <div class="stat-value text-success" id="validImages">-</div>
+                                </div>
+                            </div>
+
+                            <div class="row g-3 mt-4">
+                                <div class="col-md-6">
+                                    <h6 class="mb-3"><i class="bi bi-grid me-2"></i>Intrinsic Matrix (K)</h6>
+                                    <div class="matrix-display" id="intrinsicMatrix"></div>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6 class="mb-3"><i class="bi bi-circle-half me-2"></i>Distortion Coefficients</h6>
+                                    <div class="matrix-display" id="distortionCoeffs"></div>
+                                </div>
+                            </div>
+
+                            <div class="mt-4">
+                                <h6 class="mb-3"><i class="bi bi-images me-2"></i>Calibration Images</h6>
+                                <div id="previewGrid" class="preview-grid"></div>
+                            </div>
+
+                            <div class="text-center mt-4">
+                                <button id="downloadResultsBtn" class="btn btn-primary-modern d-none">
+                                    <i class="bi bi-download me-2"></i>Download Results (JSON)
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -61,6 +353,43 @@
     </div>
 
     <script>
+        let uploadedFiles = [];
+        let calibrationData = null;
+
+        // Upload area click handler
+        document.getElementById('uploadArea').addEventListener('click', function() {
+            document.getElementById('imageFiles').click();
+        });
+
+        // File selection handler
+        document.getElementById('imageFiles').addEventListener('change', function() {
+            uploadedFiles = Array.from(this.files);
+            document.getElementById('fileCount').innerHTML =
+                uploadedFiles.length > 0 ? `<i class="bi bi-check-circle-fill text-success me-1"></i>${uploadedFiles.length} image${uploadedFiles.length !== 1 ? 's' : ''} selected` : '';
+        });
+
+        // Drag and drop handlers
+        const uploadArea = document.getElementById('uploadArea');
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.style.background = 'rgba(102, 126, 234, 0.15)';
+        });
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.style.background = 'rgba(102, 126, 234, 0.05)';
+        });
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.style.background = 'rgba(102, 126, 234, 0.05)';
+            const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+            if (files.length > 0) {
+                uploadedFiles = files;
+                document.getElementById('imageFiles').files = files;
+                document.getElementById('fileCount').innerHTML =
+                    `<i class="bi bi-check-circle-fill text-success me-1"></i>${files.length} image${files.length !== 1 ? 's' : ''} selected`;
+            }
+        });
+
+        // Calibration button handler
         document.getElementById('calibrateBtn').addEventListener('click', async function() {
             const files = document.getElementById('imageFiles').files;
             if (files.length === 0) {
@@ -77,8 +406,10 @@
             formData.append('cellsize', document.getElementById('cellsize').value);
 
             this.disabled = true;
-            const resultsDiv = document.getElementById('calibrationResults');
-            resultsDiv.innerHTML = '<div class="spinner-border text-primary" role="status"></div> <span>Calibrating...</span>';
+            this.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Calibrating...';
+
+            const statusDiv = document.getElementById('statusDiv');
+            statusDiv.innerHTML = '<div class="spinner-border text-primary" role="status"></div> <span class="d-block mt-2">Processing images and computing parameters...</span>';
 
             try {
                 const response = await fetch('/api/mono/calibrate', {
@@ -88,17 +419,84 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    resultsDiv.innerHTML = `
-                        <div class="alert alert-success">Calibration Successful!</div>
-                        <pre>${JSON.stringify(data, null, 2)}</pre>
-                    `;
+                    calibrationData = data;
+
+                    // Show results
+                    document.getElementById('statusDiv').style.display = 'none';
+                    document.getElementById('resultsDiv').style.display = 'block';
+                    document.getElementById('successAlert').classList.remove('d-none');
+
+                    // Display statistics
+                    document.getElementById('reprojError').textContent = data.reproj_error_mean.toFixed(4);
+                    document.getElementById('validImages').textContent = data.rvecs?.length || '-';
+
+                    // Display matrices
+                    if (data.intrinsic) {
+                        const mtx = data.intrinsic;
+                        let html = '<table style="border-collapse: collapse;"><tbody>';
+                        for (let i = 0; i < mtx.length; i++) {
+                            html += '<tr>';
+                            for (let j = 0; j < mtx[i].length; j++) {
+                                html += `<td style="padding: 4px 15px; text-align: center;">${mtx[i][j].toFixed(6)}</td>`;
+                            }
+                            html += '</tr>';
+                        }
+                        html += '</tbody></table>';
+                        document.getElementById('intrinsicMatrix').innerHTML = html;
+                    }
+
+                    if (data.distortion) {
+                        const dist = data.distortion.flat ? data.distortion.flat() : data.distortion[0];
+                        let html = '<table style="border-collapse: collapse;"><tbody><tr>';
+                        dist.forEach((val, i) => {
+                            html += `<td style="padding: 4px 10px; text-align: center;" title="d${i}">${val.toFixed(6)}</td>`;
+                        });
+                        html += '</tr></tbody></table>';
+                        document.getElementById('distortionCoeffs').innerHTML = html;
+                    }
+
+                    // Display calibration image previews if available
+                    const previewGrid = document.getElementById('previewGrid');
+                    previewGrid.innerHTML = '';
+                    if (data.corners_image_urls && data.corners_image_urls.length > 0) {
+                        data.corners_image_urls.slice(0, 12).forEach((url, i) => {
+                            const div = document.createElement('div');
+                            div.className = 'preview-item';
+                            div.innerHTML = `
+                                <img src="${url}" loading="lazy">
+                                <span class="preview-badge">Error: ${data.reproj_errors?.[i]?.toFixed(3) || '-'}</span>
+                            `;
+                            previewGrid.appendChild(div);
+                        });
+                    }
+
+                    // Show download button
+                    document.getElementById('downloadResultsBtn').classList.remove('d-none');
+
                 } else {
-                    resultsDiv.innerHTML = `<div class="alert alert-danger">Error: ${data.error}</div>`;
+                    statusDiv.innerHTML = `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> Error: ${data.error}</div>`;
                 }
             } catch (error) {
-                resultsDiv.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+                statusDiv.innerHTML = `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> Error: ${error.message}</div>`;
             }
             this.disabled = false;
+            this.innerHTML = '<i class="bi bi-play-circle me-2"></i>Calibrate Camera';
+        });
+
+        // Download results handler
+        document.getElementById('downloadResultsBtn').addEventListener('click', function() {
+            if (calibrationData) {
+                const json = JSON.stringify(calibrationData, null, 2);
+                const blob = new Blob([json], {type: 'application/json'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `camera_calibration_${Date.now()}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
         });
     </script>
 </body>

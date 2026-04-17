@@ -1,65 +1,552 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hand-Eye Calibration</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        body {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+
+        .navbar {
+            background: rgba(255, 255, 255, 0.1) !important;
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .navbar-brand {
+            font-weight: 600;
+        }
+
+        .nav-link {
+            color: rgba(255,255,255,0.9) !important;
+        }
+
+        .nav-link:hover {
+            color: white !important;
+        }
+
+        .page-header {
+            padding: 30px 0;
+            text-align: center;
+            color: white;
+        }
+
+        .page-header h1 {
+            font-weight: 700;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .page-header p {
+            opacity: 0.9;
+            font-weight: 300;
+        }
+
+        .card-modern {
+            background: rgba(255, 255, 255, 0.95);
+            border: none;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .card-modern .card-header {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            border-bottom: none;
+            padding: 20px 25px;
+        }
+
+        .card-modern .card-header h5 {
+            margin: 0;
+            font-weight: 600;
+        }
+
+        .card-modern .card-body {
+            padding: 25px;
+        }
+
+        .form-label {
+            font-weight: 500;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .form-control, .form-select {
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            padding: 10px 15px;
+            transition: all 0.2s;
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: #f5576c;
+            box-shadow: 0 0 0 3px rgba(245, 87, 108, 0.15);
+        }
+
+        .btn-warning-modern {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            border: none;
+            padding: 12px 30px;
+            border-radius: 50px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .btn-warning-modern:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(245, 87, 108, 0.4);
+        }
+
+        .btn-warning-modern:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .upload-area {
+            border: 2px dashed #f5576c;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: rgba(245, 87, 108, 0.05);
+        }
+
+        .upload-area:hover {
+            background: rgba(245, 87, 108, 0.1);
+            border-color: #f093fb;
+        }
+
+        .upload-area i {
+            font-size: 2rem;
+            color: #f5576c;
+            margin-bottom: 8px;
+        }
+
+        .upload-area p {
+            color: #666;
+            margin: 0;
+            font-size: 0.9rem;
+        }
+
+        .form-check {
+            padding-left: 1.5rem !important;
+            margin-bottom: 10px;
+        }
+
+        .form-check-input {
+            width: 1.5em;
+            height: 1.5em;
+        }
+
+        .result-matrix {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.85rem;
+            overflow-x: auto;
+        }
+
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .stat-card .stat-label {
+            font-size: 0.85rem;
+            color: #666;
+        }
+
+        .stat-card .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #f5576c;
+        }
+
+        .preview-image {
+            width: 100%;
+            border-radius: 8px;
+            border: 2px solid #ddd;
+            margin-top: 10px;
+        }
+    </style>
 </head>
 <body>
-    <nav class="navbar navbar-dark bg-warning">
-        <span class="navbar-brand">Hand-Eye Calibration</span>
+    <nav class="navbar navbar-dark">
+        <div class="container">
+            <span class="navbar-brand">Hand-Eye Calibration</span>
+            <a class="nav-link" href="/"><i class="bi bi-house me-1"></i>Home</a>
+        </div>
     </nav>
 
-    <div class="container mt-4">
-        <div class="card shadow">
-            <div class="card-body">
-                <h5>Load Calibration Parameters</h5>
-                <form id="handeyeForm">
-                    <div class="mb-3">
-                        <label>Camera Parameters File</label>
-                        <select id="cameraParams" class="form-select">
-                            <option>Select a file...</option>
-                        </select>
-                    </div>
+    <div class="page-header">
+        <div class="container">
+            <h1><i class="bi bi-gear-wide-connected me-2"></i>Hand-Eye Calibration</h1>
+            <p>Robotic camera-to-robot transformation calibration</p>
+        </div>
+    </div>
 
-                    <div class="text-center mt-3">
-                        <button class="btn btn-warning btn-lg text-dark">
-                            Load Parameters
+    <div class="container pb-5">
+        <div class="row g-4">
+            <!-- Left Column: Configuration -->
+            <div class="col-lg-5">
+                <div class="card card-modern h-100">
+                    <div class="card-header">
+                        <h5><i class="bi bi-gear-fill me-2"></i>Configuration</h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Robot Data -->
+                        <div class="mb-3">
+                            <label class="form-label">
+                                <i class="bi bi-robot me-2"></i>Robot Motion Data
+                            </label>
+                            <div class="upload-area" id="robotUploadArea">
+                                <i class="bi bi-file-earmark-spreadsheet"></i>
+                                <p>Select robot data file</p>
+                            </div>
+                            <input type="file" id="robotData" class="d-none" accept=".csv,.txt">
+                            <div id="robotFileCount" class="mt-2 text-center text-muted" style="font-size: 0.9rem;"></div>
+                            <small class="text-muted d-block">CSV format: q0,qx,qy,qz,tx,ty,tz per row</small>
+                        </div>
+
+                        <!-- Camera Parameters -->
+                        <div class="mb-3">
+                            <label class="form-label">
+                                <i class="bi bi-camera me-2"></i>Camera Parameters
+                            </label>
+                            <div class="upload-area" id="cameraUploadArea">
+                                <i class="bi bi-file-earmark-json"></i>
+                                <p>Select camera calibration file</p>
+                            </div>
+                            <input type="file" id="cameraParams" class="d-none" accept=".json">
+                            <div id="cameraFileCount" class="mt-2 text-center text-muted" style="font-size: 0.9rem;"></div>
+                        </div>
+
+                        <!-- Checkerboard Settings -->
+                        <div class="mb-3">
+                            <label class="form-label d-block">
+                                <i class="bi bi-grid me-2"></i>Checkerboard Settings
+                            </label>
+                            <div class="row g-2">
+                                <div class="col-4">
+                                    <input type="number" id="cbRows" class="form-control" value="12" min="2" placeholder="Rows">
+                                </div>
+                                <div class="col-4">
+                                    <input type="number" id="cbCols" class="form-control" value="9" min="2" placeholder="Cols">
+                                </div>
+                                <div class="col-4">
+                                    <input type="number" step="0.01" id="cbCellsize" class="form-control" value="5.0" placeholder="Size (mm)">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Options -->
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input type="checkbox" id="useRvec" class="form-check-input">
+                                <label class="form-check-label" for="useRvec">Use rotation vector format (.txt)</label>
+                            </div>
+                            <div class="form-check">
+                                <input type="checkbox" id="rotationOnly" class="form-check-input">
+                                <label class="form-check-label" for="rotationOnly">Rotation only (ignore translation)</label>
+                            </div>
+                            <div class="form-check">
+                                <input type="checkbox" id="useRightCamera" class="form-check-input">
+                                <label class="form-check-label" for="useRightCamera">Use right camera (stereo)</label>
+                            </div>
+                            <div class="form-check">
+                                <input type="checkbox" id="needTranspose" class="form-check-input" checked>
+                                <label class="form-check-label" for="needTranspose">Need transpose</label>
+                            </div>
+                        </div>
+
+                        <!-- Calibration Method -->
+                        <div class="mb-3">
+                            <label class="form-label">
+                                <i class="bi bi-sliders me-2"></i>Algorithm
+                            </label>
+                            <select id="calibMethod" class="form-select">
+                                <option value="0">Tsai</option>
+                                <option value="1">Park</option>
+                                <option value="2">Daniilidis</option>
+                                <option value="3">Horaud</option>
+                                <option value="4">Andreff</option>
+                            </select>
+                        </div>
+
+                        <!-- Checkerboard Images -->
+                        <div class="mb-3">
+                            <label class="form-label">
+                                <i class="bi bi-images me-2"></i>Checkerboard Images
+                            </label>
+                            <div class="upload-area" id="imagesUploadArea">
+                                <i class="bi bi-cloud-upload"></i>
+                                <p>Select checkerboard images</p>
+                            </div>
+                            <input type="file" id="cbImages" class="d-none" multiple accept=".png,.jpg,.jpeg,.bmp">
+                            <div id="imageCount" class="mt-2 text-center text-muted" style="font-size: 0.9rem;"></div>
+                            <small class="text-muted d-block">Upload at least 4 images from different poses</small>
+                        </div>
+
+                        <button id="calibrateBtn" class="btn btn-warning-modern w-100">
+                            <i class="bi bi-play-circle me-2"></i>Compute Hand-Eye Calibration
                         </button>
                     </div>
-                </form>
-
-                <div class="mt-4">
-                    <h5>Robot Pose Configuration</h5>
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>Pose</th>
-                                <th class="text-center">Collect</th>
-                                <th>Camera Target Position</th>
-                            </tr>
-                        </thead>
-                        <tbody id="poseTable">
-                        </tbody>
-                    </table>
                 </div>
+            </div>
 
-                <div class="mt-4 text-center">
-                    <button class="btn btn-yelow btn-lg text-dark">
-                        Compute Hand-Eye Parameters
-                    </button>
-                </div>
+            <!-- Right Column: Results -->
+            <div class="col-lg-7">
+                <div class="card card-modern h-100">
+                    <div class="card-header">
+                        <h5><i class="bi bi-graph-up me-2"></i>Calibration Results</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="statusDiv">
+                            <div class="text-center text-muted py-5">
+                                <i class="bi bi-circle" style="font-size: 4rem; opacity: 0.2;"></i>
+                                <p class="mt-3 mb-0">Upload files and click Compute to begin</p>
+                            </div>
+                        </div>
 
-                <div class="mt-4">
-                    <h5>Hand-Eye Calibration Results</h5>
-                    <div id="handeyeResults"></div>
+                        <div id="resultsDiv" style="display: none;">
+                            <div class="alert alert-success d-none" id="successAlert">
+                                <i class="bi bi-check-circle me-2"></i>Hand-Eye Calibration Successful!
+                            </div>
+
+                            <div class="stats-row">
+                                <div class="stat-card">
+                                    <div class="stat-label">Rotation Error</div>
+                                    <div class="stat-value" id="rotError">-</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-label">Translation Error</div>
+                                    <div class="stat-value" id="transError">-</div>
+                                </div>
+                            </div>
+
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-6">
+                                    <h6 class="mb-3"><i class="bi bi-rotate me-2"></i>Rotation Matrix (R_c2g)</h6>
+                                    <div class="result-matrix" id="rotationMatrix"></div>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6 class="mb-3"><i class="bi bi-arrow-through-heart me-2"></i>Translation Vector (t_c2g)</h6>
+                                    <div class="result-matrix" id="translationVector"></div>
+                                </div>
+                            </div>
+
+                            <div id="previewSection" class="mb-4" style="display: none;">
+                                <h6 class="mb-3"><i class="bi bi-images me-2"></i>Corner Detection Preview</h6>
+                                <img id="cornerPreview" class="preview-image">
+                            </div>
+
+                            <div class="text-center">
+                                <button id="downloadResultsBtn" class="btn btn-warning-modern d-none">
+                                    <i class="bi bi-download me-2"></i>Download Results (JSON)
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        // JavaScript for hand-eye calibration
+        let handeyeData = null;
+
+        // Upload area handlers
+        function setupUploadArea(areaId, inputId, countId) {
+            document.getElementById(areaId).addEventListener('click', function() {
+                document.getElementById(inputId).click();
+            });
+            document.getElementById(inputId).addEventListener('change', function() {
+                const count = this.files.length;
+                document.getElementById(countId).innerHTML =
+                    count > 0 ? `<i class="bi bi-check-circle-fill text-success me-1"></i>${count} file${count !== 1 ? 's' : ''} selected` : '';
+            });
+        }
+
+        setupUploadArea('robotUploadArea', 'robotData', 'robotFileCount');
+        setupUploadArea('cameraUploadArea', 'cameraParams', 'cameraFileCount');
+        setupUploadArea('imagesUploadArea', 'cbImages', 'imageCount');
+
+        // Calibration button
+        document.getElementById('calibrateBtn').addEventListener('click', async function() {
+            const robotFile = document.getElementById('robotData').files[0];
+            const cameraFile = document.getElementById('cameraParams').files[0];
+            const cbImages = document.getElementById('cbImages').files;
+
+            if (!robotFile) {
+                alert('Please upload robot motion data file');
+                return;
+            }
+            if (!cameraFile) {
+                alert('Please upload camera parameters file');
+                return;
+            }
+            if (cbImages.length === 0) {
+                alert('Please upload checkerboard images');
+                return;
+            }
+            if (cbImages.length < 4) {
+                alert('Please upload at least 4 checkerboard images for reliable calibration');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('robot_data', robotFile);
+            formData.append('camera_params', cameraFile);
+            for (let i = 0; i < cbImages.length; i++) {
+                formData.append('cb_images', cbImages[i]);
+            }
+            formData.append('cb_rows', document.getElementById('cbRows').value);
+            formData.append('cb_cols', document.getElementById('cbCols').value);
+            formData.append('cb_cellsize', document.getElementById('cbCellsize').value);
+            formData.append('use_rvec', document.getElementById('useRvec').checked ? 'true' : 'false');
+            formData.append('rotation_only', document.getElementById('rotationOnly').checked ? 'true' : 'false');
+            formData.append('use_right_camera', document.getElementById('useRightCamera').checked ? 'true' : 'false');
+            formData.append('need_transpose', document.getElementById('needTranspose').checked ? 'true' : 'false');
+            formData.append('calib_method', document.getElementById('calibMethod').value);
+
+            this.disabled = true;
+            this.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Computing...';
+
+            const statusDiv = document.getElementById('statusDiv');
+            const resultsDiv = document.getElementById('resultsDiv');
+            statusDiv.style.display = 'none';
+            resultsDiv.style.display = 'block';
+            resultsDiv.innerHTML = '<div class="spinner-border text-warning" role="status"></div> <span class="d-block mt-2">Collecting camera poses and calibrating...</span>';
+
+            try {
+                const response = await fetch('/api/handeye/calibrate', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    handeyeData = data;
+
+                    resultsDiv.innerHTML = '';
+                    const successAlert = document.createElement('div');
+                    successAlert.id = 'successAlert';
+                    successAlert.className = 'alert alert-success';
+                    successAlert.innerHTML = '<i class="bi bi-check-circle me-2"></i>Hand-Eye Calibration Successful!';
+                    resultsDiv.appendChild(successAlert);
+
+                    // Statistics
+                    const statsRow = document.createElement('div');
+                    statsRow.className = 'stats-row';
+                    statsRow.innerHTML = `
+                        <div class="stat-card">
+                            <div class="stat-label">Rotation Error</div>
+                            <div class="stat-value">${data.result.rotation_error.toFixed(4)}°</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Translation Error</div>
+                            <div class="stat-value">${data.result.translation_error.toFixed(4)} mm</div>
+                        </div>
+                    `;
+                    resultsDiv.appendChild(statsRow);
+
+                    // Matrices section
+                    const rowDiv = document.createElement('div');
+                    rowDiv.className = 'row g-3 mb-4';
+                    rowDiv.innerHTML = `
+                        <div class="col-md-6">
+                            <h6 class="mb-3"><i class="bi bi-rotate me-2"></i>Rotation Matrix (R_c2g)</h6>
+                            <div class="result-matrix" id="rotationMatrix"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="mb-3"><i class="bi bi-arrow-through-heart me-2"></i>Translation Vector (t_c2g)</h6>
+                            <div class="result-matrix" id="translationVector"></div>
+                        </div>
+                    `;
+                    resultsDiv.appendChild(rowDiv);
+
+                    // Fill matrices
+                    const R = data.result.R_c2g;
+                    let rotHtml = '<table style="border-collapse: collapse;"><tbody>';
+                    for (let i = 0; i < R.length; i++) {
+                        rotHtml += '<tr>';
+                        for (let j = 0; j < R[i].length; j++) {
+                            rotHtml += `<td style="padding: 4px 15px; text-align: center;">${R[i][j].toFixed(6)}</td>`;
+                        }
+                        rotHtml += '</tr>';
+                    }
+                    rotHtml += '</tbody></table>';
+                    rowDiv.querySelector('#rotationMatrix').innerHTML = rotHtml;
+
+                    const t = data.result.t_c2g;
+                    let transHtml = '<table style="border-collapse: collapse;"><tbody><tr>';
+                    t.forEach((val) => {
+                        transHtml += `<td style="padding: 4px 10px; text-align: center;">${val.toFixed(6)}</td>`;
+                    });
+                    transHtml += '</tr></tbody></table>';
+                    rowDiv.querySelector('#translationVector').innerHTML = transHtml;
+
+                    // Preview image
+                    if (data.corners_preview) {
+                        const previewDiv = document.createElement('div');
+                        previewDiv.id = 'previewSection';
+                        previewDiv.className = 'mb-4';
+                        previewDiv.style.display = 'block';
+                        previewDiv.innerHTML = `
+                            <h6 class="mb-3"><i class="bi bi-images me-2"></i>Corner Detection Preview</h6>
+                            <img id="cornerPreview" class="preview-image" src="${data.corners_preview}">
+                        `;
+                        resultsDiv.appendChild(previewDiv);
+                    }
+
+                    // Download button
+                    const downloadBtn = document.createElement('button');
+                    downloadBtn.id = 'downloadResultsBtn';
+                    downloadBtn.className = 'btn btn-warning-modern';
+                    downloadBtn.innerHTML = '<i class="bi bi-download me-2"></i>Download Results (JSON)';
+                    downloadBtn.onclick = function() {
+                        if (handeyeData) {
+                            const json = JSON.stringify(handeyeData, null, 2);
+                            const blob = new Blob([json], {type: 'application/json'});
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `handeye_calibration_${Date.now()}.json`;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+                        }
+                    };
+                    resultsDiv.appendChild(downloadBtn);
+
+                } else {
+                    resultsDiv.innerHTML = `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> Error: ${data.error}</div>`;
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> Error: ${error.message}</div>`;
+            }
+            this.disabled = false;
+            this.innerHTML = '<i class="bi bi-play-circle me-2"></i>Compute Hand-Eye Calibration';
+        });
     </script>
 </body>
 </html>
