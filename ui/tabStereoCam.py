@@ -16,7 +16,7 @@ import threading
 import numpy as np
 from utils.storage import LocalStorage
 from ui.components import *
-from utils.calib import CalibBoard, quat_2_rot, rot_2_quat
+from utils.calib import CalibBoard, CameraModel, build_camera_parameters_json_block, rot_2_quat
 from utils.err import CalibErrType
 from utils.ophelper import *
 from loguru import logger
@@ -125,6 +125,14 @@ class TabStereoCam():
         # add use libcbdetect
         self.m_checkbox_use_libcbdetect = wx.CheckBox(self.tab, wx.ID_ANY, u"Use Libcbdetect")
         m_layout_actions_btns.Add(self.m_checkbox_use_libcbdetect, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 0)
+
+        self.m_statictext_camera_model = wx.StaticText(
+            self.tab, wx.ID_ANY, u"Camera model", wx.DefaultPosition, wx.DefaultSize, 0)
+        m_layout_actions_btns.Add(self.m_statictext_camera_model, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 0)
+        self.m_choice_camera_model = wx.Choice(
+            self.tab, wx.ID_ANY, choices=[u"Standard", u"Wide-angle (rational)", u"Fisheye (mono only)"])
+        self.m_choice_camera_model.SetSelection(0)
+        m_layout_actions_btns.Add(self.m_choice_camera_model, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 0)
         return m_layout_actions_btns
 
     def _create_main_view_layout(self, bitmapsize: wx.Size):
@@ -230,7 +238,7 @@ class TabStereoCam():
         tree.AssignImageList(self.iconlist)
         return tree
 
-    # 更新目录条目信息 TODO
+    # Refresh stereo pair entries from the database (left/right filenames and errors).
     def update_treectrl(self, all: bool = False):
         tree = self.m_treectrl
         tree.DeleteAllItems()
@@ -251,31 +259,35 @@ class TabStereoCam():
         left_rpjes = [r[2] for r in left_results]
         right_rpjes = [r[2] for r in right_results]
 
-        # 判定是否为最大误差值，并标红
-        if left_rpjes[0] is not None:
-            left_max_err = max(left_rpjes)
-        else:
-            left_max_err = None
-        if right_rpjes[0] is not None:
-            right_max_err = max(right_rpjes)
-        else:
-            right_max_err = None
+        dirroot = tree.AddRoot('Filename: (Left/Right Reprojection Error)', image=0)
+        if len(left_filelist) == 0 or len(right_filelist) == 0:
+            tree.Expand(dirroot)
+            return
+
+        n = min(len(left_filelist), len(right_filelist))
+        left_filelist = left_filelist[:n]
+        right_filelist = right_filelist[:n]
+        left_rpjes = left_rpjes[:n]
+        right_rpjes = right_rpjes[:n]
+
+        left_numeric = [x for x in left_rpjes if x is not None]
+        right_numeric = [x for x in right_rpjes if x is not None]
+        left_max_err = max(left_numeric) if left_numeric else None
+        right_max_err = max(right_numeric) if right_numeric else None
         max_high_count = 0
 
-        dirroot = tree.AddRoot('Filename: (Left/Right Reprojection Error)', image=0)
-        if len(left_filelist) > 0:
-            for lfname, lr, rfname, rr in zip(left_filelist, left_rpjes, right_filelist, right_rpjes):
-                newItem = tree.AppendItem(
-                    dirroot, f'{lfname},{rfname}:({str(lr)},{str(rr)})', data=[lfname, rfname])
-                if left_max_err is not None and right_max_err is not None:
-                    if (left_max_err == lr or right_max_err == rr) and max_high_count < 2:
-                        max_high_count += 1
-                        tree.SetItemTextColour(newItem, wx.RED)
-                tree.SetItemImage(newItem, self.icon_ok)
-            tree.Expand(dirroot)
-            tree.SelectItem(newItem)
-            tree.EnsureVisible(newItem)
-            tree.EnableVisibleFocus(True)
+        for lfname, lr, rfname, rr in zip(left_filelist, left_rpjes, right_filelist, right_rpjes):
+            newItem = tree.AppendItem(
+                dirroot, f'{lfname},{rfname}:({str(lr)},{str(rr)})', data=[lfname, rfname])
+            if left_max_err is not None and right_max_err is not None and lr is not None and rr is not None:
+                if (left_max_err == lr or right_max_err == rr) and max_high_count < 2:
+                    max_high_count += 1
+                    tree.SetItemTextColour(newItem, wx.RED)
+            tree.SetItemImage(newItem, self.icon_ok)
+        tree.Expand(dirroot)
+        tree.SelectItem(newItem)
+        tree.EnsureVisible(newItem)
+        tree.EnableVisibleFocus(True)
 
     def on_tree_item_select(self, evt):
         id = evt.GetItem()
@@ -313,8 +325,8 @@ class TabStereoCam():
                 limage_data, (int(img_w/SCALE_RATIO), int(img_h/SCALE_RATIO)))
             rimage_data = cv2.resize(
                 rimage_data, (int(img_w/SCALE_RATIO), int(img_h/SCALE_RATIO)))
-            self.m_bitmap_left.set_cvmat(limage_data)
-            self.m_bitmap_right.set_cvmat(rimage_data)
+            self.m_bitmap_left.set_cv_rgb(limage_data)
+            self.m_bitmap_right.set_cv_rgb(rimage_data)
             self.m_statictext_left_name.SetLabel(fnames[0])
             self.m_statictext_right_name.SetLabel(fnames[1])
         else:
@@ -385,6 +397,14 @@ class TabStereoCam():
         dpanel.Show()
         self.tab.GetParent().GetParent().Disable()
 
+    def _camera_model_from_choice(self):
+        sel = self.m_choice_camera_model.GetSelection()
+        if sel == 1:
+            return CameraModel.RATIONAL
+        if sel == 2:
+            return CameraModel.FISHEYE
+        return CameraModel.STANDARD
+
     def _write_2_file(self, filename):
         dc1 = self.dist1
         cm1 = self.mtx1
@@ -394,26 +414,24 @@ class TabStereoCam():
         t = self.T
         e = self.E
         f = self.F
+        cam_model = self._camera_model_from_choice()
+        scheme = 'opencv_fisheye' if cam_model == CameraModel.FISHEYE else 'opencv'
         paramJsonStr = {
             'version': '0.1',
             'SN': '',
-            'Scheme': 'opencv',
+            'Scheme': scheme,
             'ImageShape':[self.image_shape[0], self.image_shape[1]],
-            'CameraParameters1': {
-                'RadialDistortion': [dc1.tolist()[0][0], dc1.tolist()[0][1], dc1.tolist()[0][-1]],
-                'TangentialDistortion': [dc1.tolist()[0][2], dc1.tolist()[0][3]],
-                'IntrinsicMatrix': cm1.tolist()
-            },
-            'CameraParameters2': {
-                'RadialDistortion': [dc2.tolist()[0][0], dc2.tolist()[0][1], dc2.tolist()[0][-1]],
-                'TangentialDistortion': [dc2.tolist()[0][2], dc2.tolist()[0][3]],
-                'IntrinsicMatrix': cm2.tolist()
-            },
+            'CameraParameters1': build_camera_parameters_json_block(cm1, dc1, cam_model),
+            'CameraParameters2': build_camera_parameters_json_block(cm2, dc2, cam_model),
             'RotationOfCamera2': r.tolist(),
             'TranslationOfCamera2': t.reshape(-1).tolist(),
             'FundamentalMatrix': f.tolist(),
             'EssentialMatrix': e.tolist()
         }
+        if cam_model == CameraModel.RATIONAL:
+            paramJsonStr['DistortionModel'] = 'rational'
+        elif cam_model == CameraModel.FISHEYE:
+            paramJsonStr['DistortionModel'] = 'fisheye'
         with open(f'{filename}', 'w') as f:
             json.dump(paramJsonStr, f, indent=4)
 
@@ -430,7 +448,13 @@ class TabStereoCam():
         lfilelist = [f[2] for f in left_file_list]
         rfilelist = [f[2] for f in right_file_list]
 
-        calib = CalibBoard(row, col, cellsize, use_libcbdet=self.m_checkbox_use_libcbdetect.GetValue())
+        cam_model = self._camera_model_from_choice()
+        if cam_model == CameraModel.FISHEYE:
+            wx.CallAfter(self._camera_calibration_task_done, dlg, (False, None, None,
+                         None, None, None, None, None, None, None, None, None, None,
+                         CalibErrType.CAL_FISHEYE_STEREO_UNSUPPORTED, None, None))
+            return
+        calib = CalibBoard(row, col, cellsize, use_libcbdet=self.m_checkbox_use_libcbdetect.GetValue(), camera_model=cam_model)
         CALIB = calib.stereo_calib_parallel if calib.USE_MT is True else calib.stereo_calib
 
         ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rej_list, calib_list, shape, lpts, rpts, err = CALIB(
@@ -451,7 +475,8 @@ class TabStereoCam():
         #calib.draw_corners(img_for_dist_check, pts, False)
         RPJS=[]
         for i in range(len(rvecs)):
-            rpjs, _ = cv2.projectPoints(calib.objp, np.asarray(rvecs[i]).reshape(-1,3), np.asarray(tvecs[i]).reshape(-1,3), mtx_l0, dist_l0)
+            rpjs = calib.project_object_points(
+                np.asarray(rvecs[i]).reshape(-1, 3), np.asarray(tvecs[i]).reshape(-1, 3), mtx_l0, dist_l0)
             RPJS.append(rpjs)
         RPJS = np.asarray(RPJS).reshape(-1,2)
         calib.draw_arrows(img_for_dist_check,lpts, RPJS)

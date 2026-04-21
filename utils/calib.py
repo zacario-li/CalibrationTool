@@ -1,4 +1,4 @@
-from enum import Enum, auto
+from enum import Enum
 import cv2
 from cv2 import aruco
 import numpy as np
@@ -20,6 +20,41 @@ class CalibPatternType(Enum):
     CHARUCO = 1
     APRILTAG = 2
     UNKNOWN = 3
+
+
+class CameraModel(Enum):
+    """Pinhole with Brown distortion, optional rational terms, or fisheye model."""
+    STANDARD = 0
+    RATIONAL = 1
+    FISHEYE = 2
+
+
+def _skew_symmetric(t: np.ndarray) -> np.ndarray:
+    t = np.asarray(t).reshape(3)
+    tx, ty, tz = float(t[0]), float(t[1]), float(t[2])
+    return np.array([[0.0, -tz, ty], [tz, 0.0, -tx], [-ty, tx, 0.0]], dtype=np.float64)
+
+
+def essential_fundamental_from_stereo(K1: np.ndarray, K2: np.ndarray, R: np.ndarray, T: np.ndarray):
+    """E = [t]_x R, F = K2^{-T} E K1^{-1} (same as pinhole geometry between two views)."""
+    t = np.asarray(T).reshape(3, 1)
+    R = np.asarray(R).reshape(3, 3)
+    K1 = np.asarray(K1).reshape(3, 3)
+    K2 = np.asarray(K2).reshape(3, 3)
+    E = _skew_symmetric(t) @ R
+    F = np.linalg.inv(K2).T @ E @ np.linalg.inv(K1)
+    return E, F
+
+
+def _fisheye_per_view_rms(objpoints, imgpoints, K, D, rvecs, tvecs):
+    n = len(objpoints)
+    per = np.zeros((n, 1), dtype=np.float64)
+    for i in range(n):
+        imgproj, _ = cv2.fisheye.projectPoints(
+            objpoints[i], rvecs[i], tvecs[i], K, D)
+        err = imgproj.reshape(-1, 2) - imgpoints[i].reshape(-1, 2)
+        per[i, 0] = float(np.sqrt(np.mean(np.sum(err * err, axis=1))))
+    return per
 
 def compute_rotation_angle(ax, xb):
     try:
@@ -56,6 +91,42 @@ def timer_decorator(func):
         return result
     return wrapper
 
+def build_camera_parameters_json_block(mtx: np.ndarray, dist: np.ndarray, camera_model: CameraModel) -> dict:
+    """Serialize intrinsics for JSON export (standard / rational / fisheye)."""
+    if camera_model == CameraModel.FISHEYE:
+        d = np.asarray(dist).reshape(-1).tolist()
+        return {
+            'IntrinsicMatrix': mtx.tolist(),
+            'FisheyeDistortion': d,
+        }
+    drow = np.asarray(dist).reshape(-1)
+    k1, k2, p1, p2 = float(drow[0]), float(drow[1]), float(drow[2]), float(drow[3])
+    k3 = float(drow[4])
+    radial = [k1, k2, k3]
+    if len(drow) >= 8:
+        radial.extend([float(drow[5]), float(drow[6]), float(drow[7])])
+    return {
+        'RadialDistortion': radial,
+        'TangentialDistortion': [p1, p2],
+        'IntrinsicMatrix': mtx.tolist(),
+    }
+
+
+def infer_camera_model_from_param_file(filename: str) -> CameraModel:
+    """Infer calibration model from saved JSON (used e.g. for hand-eye pose estimation)."""
+    try:
+        with open(filename) as f:
+            jstr = json.load(f)
+    except OSError:
+        return CameraModel.STANDARD
+    if jstr.get('Scheme') == 'opencv_fisheye' or jstr.get('DistortionModel') == 'fisheye':
+        return CameraModel.FISHEYE
+    el = jstr.get('CameraParameters') or jstr.get('CameraParameters1')
+    if el and 'RadialDistortion' in el and len(el['RadialDistortion']) >= 6:
+        return CameraModel.RATIONAL
+    return CameraModel.STANDARD
+
+
 def load_handeye_param(filename:str):
     with open(filename) as f:
         jstr = json.load(f)
@@ -75,7 +146,7 @@ def load_camera_param(filename: str, need_trans=False, camera_id=False, need_rt=
 
     NEED_TRANS = need_trans
     if 'Scheme' in jstr:
-        if jstr['Scheme'] != 'opencv':
+        if jstr['Scheme'] not in ('opencv', 'opencv_fisheye'):
             NEED_TRANS = True
 
     if 'CameraParameters' in jstr:
@@ -89,15 +160,26 @@ def load_camera_param(filename: str, need_trans=False, camera_id=False, need_rt=
         return None, None
 
     intri = jstr[f'{ELEMENT_NAME}']['IntrinsicMatrix']
-    dist_r = jstr[f'{ELEMENT_NAME}']['RadialDistortion']
-    dist_t = jstr[f'{ELEMENT_NAME}']['TangentialDistortion']
-
     mtx = np.array(intri)
     if NEED_TRANS:
         mtx = mtx.T
-    dist = np.array(
-        [dist_r[:2] + dist_t + [dist_r[-1]]]
-    )
+
+    cam_el = jstr[f'{ELEMENT_NAME}']
+    if jstr.get('Scheme') == 'opencv_fisheye' or jstr.get('DistortionModel') == 'fisheye':
+        dist_fe = cam_el.get('FisheyeDistortion')
+        if dist_fe is None:
+            logger.debug("json fisheye distortion missing")
+            return None, None
+        dist = np.array(dist_fe, dtype=np.float64).reshape(1, -1)
+    else:
+        dist_r = cam_el['RadialDistortion']
+        dist_t = cam_el['TangentialDistortion']
+        dist = np.array(
+            [dist_r[:2] + dist_t + [dist_r[-1]]]
+        )
+        # Optional rational radial terms (k4, k5, k6) for wide-angle pinhole models
+        if len(dist_r) >= 6:
+            dist = np.hstack([dist, np.array([[dist_r[2], dist_r[3], dist_r[4]]], dtype=np.float64)])
     if need_rt is not True:
         if need_size is not True:
             return mtx, dist
@@ -187,11 +269,6 @@ def euler_2_quat(roll, pitch, yaw):
     q[0] = w, q[1] = x, q[2] = y, q[3] = z
 
     return q
-
-def combine_RT(R, Tx, Ty, Tz):
-    M = np.hstack([R, [[Tx], [Ty], [Tz]]])
-    M = np.vstack((M, [0, 0, 0, 1]))  # convert it to homogeneous matrix
-    return M
 
 class HandEye():
     def __init__(self):
@@ -374,11 +451,12 @@ class HandEye():
 
 
 class CalibBoard():
-    def __init__(self, row, col, cellsize, use_mt: bool = True, use_libcbdet = False, pattern=CalibPatternType.CHESSBOARD, charuco_dict=aruco.DICT_4X4_1000, charuco_size=3):
+    def __init__(self, row, col, cellsize, use_mt: bool = True, use_libcbdet = False, pattern=CalibPatternType.CHESSBOARD, charuco_dict=aruco.DICT_4X4_1000, charuco_size=3, camera_model: CameraModel = CameraModel.STANDARD):
         # use libcbdetect
         self.use_libcbdet=use_libcbdet
         # use multi-threading
         self.USE_MT = use_mt
+        self.camera_model = camera_model if isinstance(camera_model, CameraModel) else CameraModel(camera_model)
         # checkerboard pattern
         self.ROW_COR = row-1
         self.COL_COR = col-1
@@ -396,6 +474,8 @@ class CalibBoard():
         self.objp = np.zeros((self.COL_COR*self.ROW_COR, 3), np.float32)
         self.objp[:, :2] = np.mgrid[0:self.ROW_COR,
                                     0:self.COL_COR].T.reshape(-1, 2) * self.CELLSIZE
+        # fisheye API expects Nx1x3 object points
+        self.objp_fisheye = self.objp.reshape(-1, 1, 3).astype(np.float32)
 
     # 单目校准
     @timer_decorator
@@ -414,17 +494,27 @@ class CalibBoard():
                 rejected_files.append(fname)
             else:
                 calibrated_files.append(fname)
-                objpoints.append(self.objp)
+                objpoints.append(self.objp_fisheye if self.camera_model == CameraModel.FISHEYE else self.objp)
                 imgpoints.append(cors)
 
         # 检查角点size是否为0
         if len(imgpoints) == 0:
             return False, None, None, None, None, None, None, None, None, None, CalibErrType.CAL_CORNER_DET_ERR
 
-        ret, mtx, dist, rvecs, tvecs, stdintri, stdextri, perverrs = cv2.calibrateCameraExtended(
-            objpoints, imgpoints, gray.shape[::-1], None, None, criteria=self.criteria)        
-
-        # TODO evaluate the results
+        if self.camera_model == CameraModel.FISHEYE:
+            K = np.eye(3, dtype=np.float64)
+            D = np.zeros((4, 1), dtype=np.float64)
+            fe_flags = cv2.fisheye.CALIB_RECOMPUTE_EXTRINSIC + cv2.fisheye.CALIB_CHECK_COND
+            rms, mtx, dist, rvecs, tvecs = cv2.fisheye.calibrate(
+                objpoints, imgpoints, gray.shape[::-1], K, D, flags=fe_flags, criteria=self.criteria)
+            perverrs = _fisheye_per_view_rms(objpoints, imgpoints, mtx, dist, rvecs, tvecs)
+            ret = float(rms)
+        else:
+            calib_flags = 0
+            if self.camera_model == CameraModel.RATIONAL:
+                calib_flags |= cv2.CALIB_RATIONAL_MODEL
+            ret, mtx, dist, rvecs, tvecs, stdintri, stdextri, perverrs = cv2.calibrateCameraExtended(
+                objpoints, imgpoints, gray.shape[::-1], None, None, flags=calib_flags, criteria=self.criteria)
         return ret, mtx, dist, rvecs, tvecs, perverrs, rejected_files, calibrated_files, gray.shape[::-1], imgpoints, CalibErrType.CAL_OK
 
     # parallen mono calib
@@ -454,10 +544,21 @@ class CalibBoard():
         if len(imgpoints) == 0:
             return False, None, None, None, None, None, None, None, None, None, CalibErrType.CAL_CORNER_DET_ERR
 
-        ret, mtx, dist, rvecs, tvecs, stdintri, stdextri, perverrs = cv2.calibrateCameraExtended(
-            objpoints, imgpoints, image_for_shape.shape[::-1], None, None, criteria=self.criteria)
+        if self.camera_model == CameraModel.FISHEYE:
+            K = np.eye(3, dtype=np.float64)
+            D = np.zeros((4, 1), dtype=np.float64)
+            fe_flags = cv2.fisheye.CALIB_RECOMPUTE_EXTRINSIC + cv2.fisheye.CALIB_CHECK_COND
+            rms, mtx, dist, rvecs, tvecs = cv2.fisheye.calibrate(
+                objpoints, imgpoints, image_for_shape.shape[::-1], K, D, flags=fe_flags, criteria=self.criteria)
+            perverrs = _fisheye_per_view_rms(objpoints, imgpoints, mtx, dist, rvecs, tvecs)
+            ret = float(rms)
+        else:
+            calib_flags = 0
+            if self.camera_model == CameraModel.RATIONAL:
+                calib_flags |= cv2.CALIB_RATIONAL_MODEL
+            ret, mtx, dist, rvecs, tvecs, stdintri, stdextri, perverrs = cv2.calibrateCameraExtended(
+                objpoints, imgpoints, image_for_shape.shape[::-1], None, None, flags=calib_flags, criteria=self.criteria)
 
-        # TODO evaluate the results
         return ret, mtx, dist, rvecs, tvecs, perverrs, rejected_files, calibrated_files, image_for_shape.shape[::-1], imgpoints, CalibErrType.CAL_OK
 
     # 双目校准
@@ -485,19 +586,21 @@ class CalibBoard():
         # 检查角点size是否为0
         if len(imgpoints_left) == 0 or len(imgpoints_right) == 0:
             return False, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, CalibErrType.CAL_CORNER_DET_ERR
+        if self.camera_model == CameraModel.FISHEYE:
+            return (False, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
+                    CalibErrType.CAL_FISHEYE_STEREO_UNSUPPORTED)
+        calib_flags = cv2.CALIB_RATIONAL_MODEL if self.camera_model == CameraModel.RATIONAL else 0
         # single calibrate
         ret_l, mtx_l, dist_l, rvecs_l, tvecs_l, stdintri_l, stdextri_l, pererr = cv2.calibrateCameraExtended(
-            objpoints, imgpoints_left, leftimg.shape[::-1], None, None, criteria=self.criteria)
+            objpoints, imgpoints_left, leftimg.shape[::-1], None, None, flags=calib_flags, criteria=self.criteria)
         ret_r, mtx_r, dist_r, rvecs_r, tvecs_r, stdintri_r, stdextri_r, pererr = cv2.calibrateCameraExtended(
-            objpoints, imgpoints_right, rightimg.shape[::-1], None, None, criteria=self.criteria)
+            objpoints, imgpoints_right, rightimg.shape[::-1], None, None, flags=calib_flags, criteria=self.criteria)
         # stereo calibrate
-        # ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F = cv2.stereoCalibrate(
-        #     objpoints, imgpoints_left, imgpoints_right, mtx_l, dist_l, mtx_r, dist_r, leftimg.shape[::-1], criteria=self.criteria)
         # 创建旋转矩阵和平移向量的初始值
         R = np.eye(3)  # 3x3的单位矩阵
         T = np.zeros((3, 1))  # 3x1的零向量
         ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr = cv2.stereoCalibrateExtended(
-            objpoints, imgpoints_left, imgpoints_right, mtx_l, dist_l, mtx_r, dist_r, leftimg.shape[::-1], R, T, criteria=self.criteria)
+            objpoints, imgpoints_left, imgpoints_right, mtx_l, dist_l, mtx_r, dist_r, leftimg.shape[::-1], R, T, flags=calib_flags, criteria=self.criteria)
 
         return ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rejected_files, calibrated_files, leftimg.shape[::-1], imgpoints_left, imgpoints_right, CalibErrType.CAL_OK
 
@@ -528,27 +631,39 @@ class CalibBoard():
         # 检查角点size是否为0
         if len(imgpoints_left) == 0 or len(imgpoints_right) == 0:
             return False, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, CalibErrType.CAL_CORNER_DET_ERR
-        
+        if self.camera_model == CameraModel.FISHEYE:
+            return (False, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,
+                    CalibErrType.CAL_FISHEYE_STEREO_UNSUPPORTED)
+
+        calib_flags = cv2.CALIB_RATIONAL_MODEL if self.camera_model == CameraModel.RATIONAL else 0
         # single calibrate for each camera
         ret_l, mtx_l, dist_l, rvecs_l, tvecs_l, stdintri_l, stdextri_l, pererr = cv2.calibrateCameraExtended(
-            objpoints, imgpoints_left, image_for_shape.shape[::-1], None, None, criteria=self.criteria)
+            objpoints, imgpoints_left, image_for_shape.shape[::-1], None, None, flags=calib_flags, criteria=self.criteria)
         ret_r, mtx_r, dist_r, rvecs_r, tvecs_r, stdintri_r, stdextri_r, pererr = cv2.calibrateCameraExtended(
-            objpoints, imgpoints_right, image_for_shape.shape[::-1], None, None, criteria=self.criteria)
+            objpoints, imgpoints_right, image_for_shape.shape[::-1], None, None, flags=calib_flags, criteria=self.criteria)
 
         # 创建旋转矩阵和平移向量的初始值
         R = np.eye(3)  # 3x3的单位矩阵
         T = np.zeros((3, 1))  # 3x1的零向量
         ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr = cv2.stereoCalibrateExtended(
-            objpoints, imgpoints_left, imgpoints_right, mtx_l, dist_l, mtx_r, dist_r, image_for_shape.shape[::-1], R, T, criteria=self.criteria)
+            objpoints, imgpoints_left, imgpoints_right, mtx_l, dist_l, mtx_r, dist_r, image_for_shape.shape[::-1], R, T, flags=calib_flags, criteria=self.criteria)
 
         return ret, mtx_l0, dist_l0, mtx_r0, dist_r0, R, T, E, F, rvecs, tvecs, pererr, rejected_files, calibrated_files, image_for_shape.shape[::-1], imgpoints_left, imgpoints_right, CalibErrType.CAL_OK
 
     # 重投影误差
 
+    def project_object_points(self, rvec, tvec, cameraMatrix, distCoeffs):
+        if self.camera_model == CameraModel.FISHEYE:
+            imgpts, _ = cv2.fisheye.projectPoints(
+                self.objp_fisheye, rvec, tvec, cameraMatrix, distCoeffs)
+            return imgpts
+        imgpts, _ = cv2.projectPoints(
+            self.objp, rvec, tvec, cameraMatrix, distCoeffs)
+        return imgpts
+
     def rpje(self, corners, r, t, cameraMatrix, distCoeffs):
         points_number = self.ROW_COR*self.COL_COR
-        imgpts, _ = cv2.projectPoints(
-            self.objp, r, t, cameraMatrix, distCoeffs)
+        imgpts = self.project_object_points(r, t, cameraMatrix, distCoeffs)
 
         err = np.linalg.norm(
             (imgpts.reshape(points_number, -1) - corners.reshape(points_number, -1)), axis=1)
@@ -579,15 +694,20 @@ class CalibBoard():
 
     # 计算单张棋盘格的R,T
     def calculate_img_rt(self, grayimg, cameraMatrix, distCoeffs, vis=False):
-        _, cors = self.find_corners(grayimg)
-        if _ is not True:
+        found, cors = self.find_corners(grayimg)
+        if found is not True:
             return None, None, None
 
-        ret, rvecs, tvecs, inliers = cv2.solvePnPRansac(
-            self.objp, cors.reshape(-1, 2), cameraMatrix, distCoeffs)
+        if self.camera_model == CameraModel.FISHEYE:
+            ok, rvecs, tvecs, inliers = cv2.fisheye.solvePnPRansac(
+                self.objp_fisheye, cors.reshape(-1, 1, 2), cameraMatrix, distCoeffs)
+        else:
+            ok, rvecs, tvecs, inliers = cv2.solvePnPRansac(
+                self.objp, cors.reshape(-1, 2), cameraMatrix, distCoeffs)
+        if ok is not True:
+            return None, None, None
         if vis is True:
-            imgpts, _ = cv2.projectPoints(
-                self.objp, rvecs, tvecs, cameraMatrix, distCoeffs)
+            imgpts = self.project_object_points(rvecs, tvecs, cameraMatrix, distCoeffs)
             ret = None
             img = cv2.drawChessboardCorners(
                 grayimg, (self.ROW_COR, self.COL_COR), cors, ret)
@@ -653,7 +773,8 @@ class CalibBoard():
         if ret is not True:
             return (fname, None, None, 'rejected')
         else:
-            return (fname, self.objp, cors, 'calibrated')
+            objp = self.objp_fisheye if self.camera_model == CameraModel.FISHEYE else self.objp
+            return (fname, objp, cors, 'calibrated')
 
     # stereo parellel processing the image
     def _stereo_process_image_corners(self, args):
@@ -666,6 +787,10 @@ class CalibBoard():
             return (lfname, rfname, None, None, 'rejected')
         else:
             return (lfname, rfname, lcors, rcors, 'calibrated')
+
+
+# Backwards-compatible alias used by legacy tests and scripts
+CalibChessboard = CalibBoard
 
 
 class CubeCalibTarget():
