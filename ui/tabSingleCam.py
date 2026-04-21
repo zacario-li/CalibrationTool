@@ -8,7 +8,6 @@ Modified: !date!
 
 
 import os
-import sys
 import threading
 import cv2
 import numpy as np
@@ -18,7 +17,7 @@ import pickle
 
 from utils.ophelper import *
 from utils.storage import LocalStorage
-from utils.calib import CalibBoard, quat_2_rot, rot_2_quat
+from utils.calib import CalibBoard, CameraModel, build_camera_parameters_json_block, rot_2_quat
 from utils.err import CalibErrType
 from ui.components import * # wx is already imported through components
 
@@ -145,6 +144,14 @@ class TabSingleCam():
         # add use libcbdetect 
         self.m_checkbox_use_libcbdetect = wx.CheckBox(self.tab, wx.ID_ANY, label="Use Libcbdetect")
         self.checkerpattern_h_sizer.Add(self.m_checkbox_use_libcbdetect, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, pattern_border)
+
+        self.m_statictext_camera_model = wx.StaticText(
+            self.tab, wx.ID_ANY, u"Camera model", wx.DefaultPosition, wx.DefaultSize, 0)
+        self.checkerpattern_h_sizer.Add(self.m_statictext_camera_model, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, pattern_border)
+        self.m_choice_camera_model = wx.Choice(
+            self.tab, wx.ID_ANY, choices=[u"Standard", u"Wide-angle (rational)", u"Fisheye"])
+        self.m_choice_camera_model.SetSelection(0)
+        self.checkerpattern_h_sizer.Add(self.m_choice_camera_model, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, pattern_border)
         
         sizer.Add(self.checkerpattern_h_sizer, 1, wx.ALL, 5)
 
@@ -175,15 +182,6 @@ class TabSingleCam():
 
         self.main_h_sizer.Add(self.m_main_image_view, 3,
                               wx.ALIGN_CENTER_VERTICAL, 5)
-
-        # vtk panel
-        # camera poses
-        # if sys.platform != "darwin":
-        #     from ui.vtkpanel import VTKPanel
-        #     self.camera_pose_view = VTKPanel(self.tab, wx.Size(200, 200))
-        #     self.main_h_sizer.Add(self.camera_pose_view, 1,
-        #                           wx.ALIGN_CENTER_VERTICAL, 5)
-        # # TODO
 
         # register callback
         self._register_all_callbacks()
@@ -272,10 +270,8 @@ class TabSingleCam():
         rpjes = [r[2] for r in results]
 
         # 判定是否为最大误差值，并标红
-        if rpjes[0] is not None:
-            max_err = max(rpjes)
-        else:
-            max_err = None
+        numeric_rpjes = [x for x in rpjes if x is not None]
+        max_err = max(numeric_rpjes) if numeric_rpjes else None
         max_high_count = 0
 
         dirroot = tree.AddRoot('Filename: (Reprojection Error)', image=0)
@@ -350,7 +346,7 @@ class TabSingleCam():
             image_data = cv2.cvtColor(image_data, cv2.COLOR_BGR2RGB)
             image_data = cv2.resize(
                 image_data, (int(img_w/SCALE_RATIO), int(img_h/SCALE_RATIO)))
-            self.m_main_image_view.set_cvmat(image_data)
+            self.m_main_image_view.set_cv_rgb(image_data)
         else:
             self.m_main_image_view.set_bitmap(
                 wx.Bitmap(IMAGE_VIEW_W, IMAGE_VIEW_H))
@@ -482,19 +478,29 @@ class TabSingleCam():
         dpanel.Show()
         self.tab.GetParent().GetParent().Disable()
 
+    def _camera_model_from_choice(self):
+        sel = self.m_choice_camera_model.GetSelection()
+        if sel == 1:
+            return CameraModel.RATIONAL
+        if sel == 2:
+            return CameraModel.FISHEYE
+        return CameraModel.STANDARD
+
     def _write_2_file(self, filename, mtx, dist):
+        cam_model = self._camera_model_from_choice()
+        scheme = 'opencv_fisheye' if cam_model == CameraModel.FISHEYE else 'opencv'
         paramJsonStr = {
             'version': '0.1',
             'SN': '',
-            'Scheme': 'opencv',
+            'Scheme': scheme,
             'ImageShape':[self.image_shape[0], self.image_shape[1]],
-            'CameraParameters': {
-                'RadialDistortion': [dist.tolist()[0][0], dist.tolist()[0][1], dist.tolist()[0][-1]],
-                'TangentialDistortion': [dist.tolist()[0][2], dist.tolist()[0][3]],
-                'IntrinsicMatrix': mtx.tolist()
-            },
+            'CameraParameters': build_camera_parameters_json_block(mtx, dist, cam_model),
             'ReprojectionError': self.rpjerr
         }
+        if cam_model == CameraModel.RATIONAL:
+            paramJsonStr['DistortionModel'] = 'rational'
+        elif cam_model == CameraModel.FISHEYE:
+            paramJsonStr['DistortionModel'] = 'fisheye'
         with open(f'{filename}', 'w') as f:
             json.dump(paramJsonStr, f, indent=4)
         pass
@@ -502,7 +508,8 @@ class TabSingleCam():
     # 相机校准线程
     def _run_camera_calibration_task(self, row, col, cellsize, results, filelist, dlg):
         # 创建单目校准类
-        calib = CalibBoard(row, col, cellsize, use_libcbdet=self.m_checkbox_use_libcbdetect.GetValue())
+        calib = CalibBoard(row, col, cellsize, use_libcbdet=self.m_checkbox_use_libcbdetect.GetValue(),
+                           camera_model=self._camera_model_from_choice())
         CALIB = calib.mono_calib_parallel if calib.USE_MT is True else calib.mono_calib
         # 执行校准，并得到结果
         ret, mtx, dist, rvecs, tvecs, rpjes, rej_list, cal_list, shape, pts, err = CALIB(
@@ -518,7 +525,8 @@ class TabSingleCam():
         ## calculate rpj
         RPJS=[]
         for i in range(len(rvecs)):
-            rpjs, _ = cv2.projectPoints(calib.objp, np.asarray(rvecs[i]).reshape(-1,3), np.asarray(tvecs[i]).reshape(-1,3), mtx, dist)
+            rpjs = calib.project_object_points(
+                np.asarray(rvecs[i]).reshape(-1, 3), np.asarray(tvecs[i]).reshape(-1, 3), mtx, dist)
             RPJS.append(rpjs)
         RPJS = np.asarray(RPJS).reshape(-1,2)
 

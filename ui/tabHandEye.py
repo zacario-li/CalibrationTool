@@ -18,7 +18,7 @@ import numpy as np
 from ui.components import ImagePanel
 from utils.ophelper import *
 from utils.storage import LocalStorage
-from utils.calib import CalibBoard, HandEye, load_camera_param, combine_RT, rot_2_quat
+from utils.calib import CalibBoard, HandEye, infer_camera_model_from_param_file, load_camera_param, combine_RT, rot_2_quat
 from utils.err import CalibErrType
 from loguru import logger
 
@@ -462,7 +462,7 @@ class TabHandEye():
             SCALE_RATIO = img_w/HE_IMAGE_VIEW_W
             img_data = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             img_data = cv2.resize(img_data, (int(img_w/SCALE_RATIO),int(img_h/SCALE_RATIO)))
-            self.m_panel_checkview.set_cvmat(img_data)
+            self.m_panel_checkview.set_cv_rgb(img_data)
         else:
             self.m_panel_checkview.set_bitmap(wx.Bitmap(HE_IMAGE_VIEW_W, HE_IMAGE_VIEW_H))
         self.m_panel_checkview.Refresh()
@@ -620,7 +620,6 @@ class TabHandEye():
         cell_p = float(self.m_textctrl_cb_cellsize.GetValue())
         # ax=xb
         he = HandEye()
-        cb = CalibBoard(row_p, col_p, cell_p, use_libcbdet=self.m_checkbox_use_libcbdetect.GetValue())
 
         # 读取传感器rt(NDI/IMU etc.)
         try: 
@@ -635,13 +634,9 @@ class TabHandEye():
         # 加载相机参数
         mtx, dist = load_camera_param(
             c_p, self.m_checkbox_cb_transflag.IsChecked(), self.m_checkbox_camera_id.IsChecked())
+        cam_model = infer_camera_model_from_param_file(c_p)
+        cb = CalibBoard(row_p, col_p, cell_p, use_libcbdet=self.m_checkbox_use_libcbdetect.GetValue(), camera_model=cam_model)
         # 计算图像外参
-        # images = self._list_images_with_suffix(b_p)
-        # results = self.db.retrive_data(
-        #     self.DB_TABLENAME, f'rootpath, filename', '')
-        # images = [f[1] for f in results]
-        # check if A's size match B's size
-        # TODO
         R_b2c = []
         t_b2c = []
         # test map

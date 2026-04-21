@@ -20,8 +20,9 @@ If you want to speedup my progress, please support me.
 Use [Calib.io](https://calib.io/pages/camera-calibration-pattern-generator) to generate the pattern.
 ## TODO
 - [x]   Support FOV < 80
-- [ ]   Support WideAngle (80~110)
-- [ ]   Support FishEye and 360
+- [x]   Support WideAngle (80~110) — pinhole with rational distortion in mono/stereo calibration UI
+- [x]   Support FishEye — mono calibration and hand-eye pose use `cv2.fisheye`; stereo pair calibration still uses pinhole (select fisheye in stereo tab to see a clear error)
+- [ ]   Support 360 (equirectangular / omnidirectional pipeline)
 - [x]   Support SGBM/SGM stereo disparity estimation
 - [ ]   Support 3D calibration pattern
 - [ ]   Support Multi-Cam calibration
