@@ -1,7 +1,7 @@
 # Camera Calibration Tool on Windows/MacOS
 ## Support Me
 If you want to speedup my progress, please support me.  
-<a href="https://www.buymeacoffee.com/winafoxq"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=&slug=winafoxq&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff" /></a>
+<a href="https://www.buymeacoffee.com/winafoxq"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" width="217" /></a>
 ## support Mono/Stereo/HandEye calibration and Disparity estimation
 ![screenshot_mono](elements/screenshot1.png)  
 ![screenshot_stereo](elements/screenshot2.png) 
